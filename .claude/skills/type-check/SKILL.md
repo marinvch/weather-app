@@ -28,11 +28,15 @@ makes it easy to skip.
    npm run lint
    ```
 
-   **`npm run lint` currently exits 1 on a clean tree**, with exactly two pre-existing
-   `react-refresh/only-export-components` errors: `src/components/ui/badge.tsx:35` and
-   `src/components/ui/button.tsx:56`, both because those generated shadcn files export a CVA
-   `*Variants` object alongside the component. Treat those two as the baseline. Any *other* lint
-   error is yours.
+   **`npm run lint` exits 0 on a clean tree.** There is no baseline to discount any more — the two
+   long-standing `react-refresh/only-export-components` errors were in the generated shadcn
+   `badge.tsx` and `button.tsx`, and those files were deleted with Tailwind. Every lint error you
+   see is yours.
+
+   Lint also enforces the architecture: `no-restricted-imports` on the `@/` alias blocks
+   feature-to-feature imports and anything in `shared/` reaching up into `features/` or `app/`. It
+   matches on the alias string, so a relative `../../features/marine` slips past — always import
+   across directories with `@/`.
 
 ## Invariants
 
