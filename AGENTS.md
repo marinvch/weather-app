@@ -7,9 +7,12 @@ caching.
 
 ## Stack
 
-React 19 + TypeScript 5.8, Vite 7, Redux Toolkit 2 (RTK Query), TailwindCSS 3 + shadcn/ui
-(Radix + CVA), Recharts, react-leaflet. Package manager: npm. No backend — all data comes from
-public Open-Meteo endpoints.
+React 19 + TypeScript 5.8, Vite 7, Redux Toolkit 2 (RTK Query), Recharts, react-leaflet. Package
+manager: npm. No backend — all data comes from public Open-Meteo endpoints.
+
+**Two design systems, on purpose, mid-migration.** MUI v9 (`@mui/material` + Emotion) is the
+direction; TailwindCSS 3 + shadcn/ui (Radix + CVA) is what the UI is built from today. Build new UI
+in MUI. See *MUI / Tailwind interop* below before changing anything about how either is configured.
 
 ## Layout
 
@@ -21,7 +24,30 @@ public Open-Meteo endpoints.
 | `src/store/slices/` | feature state: `userProfile`, `preferences`, `alerts` |
 | `src/types/weather.ts` | every weather/profile type in the app — single source |
 | `src/utils/` | geolocation, service-worker registration, per-profile theming |
+| `src/theme/` | the MUI theme and its provider — `AppTheme` wraps the app in `main.tsx` |
 | `public/` | hand-written `sw.js`, PWA `manifest.json`, icons |
+
+## MUI / Tailwind interop
+
+Three settings hold this together. They are a set — changing one alone breaks the UI:
+
+- **`StyledEngineProvider injectFirst`** (`src/theme/AppTheme.tsx`). MUI component styles and
+  Tailwind utilities are both single-class selectors, so source order decides. This is what makes a
+  `className` on a MUI component actually win.
+- **No `<CssBaseline />`, and Tailwind preflight stays on.** MUI's docs say to swap one for the
+  other. Do not do that yet: Tailwind's `border` utilities set only `border-width` and rely on
+  preflight for `border-style: solid`, and this UI is built on `border`, `border-2` and `border-b-2`
+  throughout. Dropping preflight erases every border in the app, silently.
+- **No `modularCssLayers`.** That is the correct answer against Tailwind v4, which emits its own
+  cascade layers. This repo is on Tailwind **v3**, whose output is unlayered — and unlayered CSS
+  beats every layer regardless of specificity, so putting MUI in `@layer mui` would let preflight
+  override MUI's own component styles.
+
+When the shadcn layer is finally gone, flip all three in one commit: drop `injectFirst`, add
+`<CssBaseline />`, set `corePlugins.preflight: false`.
+
+`cssVariables: true` is on, so Tailwind can reference MUI's palette as
+`var(--mui-palette-primary-main)`.
 
 ## Running it
 

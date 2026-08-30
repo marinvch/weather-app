@@ -8,7 +8,7 @@ regression is most likely.
 | Path | Holds |
 |---|---|
 | `Dashboard/` | one per profile — General, Marine, Mountain, Agricultural |
-| `ui/` | shadcn/ui primitives: badge, button, card, select |
+| `ui/` | shadcn/ui primitives: badge, button, card, select — **legacy**, being replaced by MUI |
 | `WeatherCard/`, `WeatherChart/`, `WeatherMap/` | shared presentation blocks |
 | `AIAnalysis/`, `ProfileSelector/`, `EmergencyInfo/`, `OfflineIndicator/` | feature components |
 
@@ -33,6 +33,9 @@ component **and** a new branch there.
 
 ## Rules
 
+- **New UI is built in MUI v9**, imported from `@mui/material`. The app is wrapped in `AppTheme`
+  (`src/theme/`), so components pick the theme up automatically — but read the *MUI / Tailwind
+  interop* section of the root `AGENTS.md` before touching any styling configuration.
 - Never call `useSelector`/`useDispatch` directly — use `useAppSelector`/`useAppDispatch` from
   `src/store/hooks.ts`.
 - Compose classes with `cn()` from `src/lib/utils.ts`. Hand-concatenated Tailwind strings break
