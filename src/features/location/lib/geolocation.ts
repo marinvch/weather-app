@@ -168,13 +168,13 @@ export async function getLocationInfo(
 ): Promise<LocationInfo> {
   try {
     // Use Nominatim (OpenStreetMap) free reverse geocoding service
+    // No custom headers, deliberately. This used to send a User-Agent, which
+    // browsers forbid scripts from setting — and including it made the request
+    // non-simple, triggering a CORS preflight that Nominatim rejects. The fetch
+    // failed every time and the caller quietly fell back to raw coordinates, so
+    // reverse geocoding never actually worked in the browser.
     const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coordinates.latitude}&lon=${coordinates.longitude}&zoom=10&addressdetails=1&accept-language=en`,
-      {
-        headers: {
-          "User-Agent": "WeatherApp/1.0",
-        },
-      }
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coordinates.latitude}&lon=${coordinates.longitude}&zoom=10&addressdetails=1&accept-language=en`
     );
 
     if (!response.ok) {

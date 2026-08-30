@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Provider } from 'react-redux';
 import { store } from '@/store/store';
 import { ProfileSelector } from '@/app/components/ProfileSelector';
@@ -17,6 +17,12 @@ import { getCurrentLocation, getLocationInfo, type LocationInfo } from '@/featur
 import { getThemeStyle, getButtonClasses } from '@/shared/theme/profileThemes';
 import type { Coordinates } from '@/shared/types/weather';
 
+// Medenrudnik, Burgas — the fallback when geolocation is denied or times out.
+// Module scope on purpose: as a literal inside the component it was a new
+// object every render, which is what made the location effect loop.
+const DEFAULT_COORDS: Coordinates = { latitude: 42.6967, longitude: 27.2695 };
+const DEFAULT_LOCATION_NAME = 'Medenrudnik, Burgas, Bulgaria';
+
 function WeatherApp() {
   const dispatch = useAppDispatch();
   const { profile, location, locationName } = useAppSelector((state) => state.userProfile);
@@ -25,10 +31,13 @@ function WeatherApp() {
   const [locationInfo, setLocationInfo] = useState<LocationInfo | null>(null);
   const [showEmergencyInfo, setShowEmergencyInfo] = useState(false);
 
-  // Demo coordinates (Medenrudnik, Burgas, Bulgaria) if geolocation fails
-  const defaultCoords: Coordinates = { latitude: 42.6967, longitude: 27.2695 };
-  const currentCoords = location || defaultCoords;
-  const currentLocationName = locationName || 'Medenrudnik, Burgas, Bulgaria';
+  const currentCoords = location || DEFAULT_COORDS;
+  const currentLocationName = locationName || DEFAULT_LOCATION_NAME;
+
+  // Which coordinates we have already tried to reverse-geocode. A ref, not
+  // state, because changing it must not trigger a render — and because a
+  // failed lookup must not be retried forever.
+  const geocodedFor = useRef<string | null>(null);
 
   const requestLocation = useCallback(async () => {
     setIsLoadingLocation(true);
@@ -45,9 +54,9 @@ function WeatherApp() {
       console.error('Geolocation error:', error);
       setLocationError(error instanceof Error ? error.message : 'Failed to get your location');
 
-      // Fallback to default location with basic info
+      // Fallback to the default location with basic info
       try {
-        const fallbackInfo = await getLocationInfo({ latitude: 42.6967, longitude: 27.2695 });
+        const fallbackInfo = await getLocationInfo(DEFAULT_COORDS);
         setLocationInfo(fallbackInfo);
       } catch (fallbackError) {
         console.error('Fallback location info failed:', fallbackError);
@@ -58,14 +67,24 @@ function WeatherApp() {
   }, [dispatch]);
 
   useEffect(() => {
-    // Auto-request location on first load
+    // Auto-request location on first load.
     if (!location) {
       requestLocation();
-    } else if (!locationInfo) {
-      // Get location info for current coordinates
-      getLocationInfo(currentCoords).then(setLocationInfo).catch(console.error);
+      return;
     }
-  }, [location, requestLocation, currentCoords, locationInfo]);
+
+    // Resolve a display name for whatever coordinates we ended up with — once
+    // per coordinate pair. This effect used to depend on `currentCoords`, which
+    // was rebuilt as a fresh object literal on every render, so it re-ran on
+    // every render and re-entered requestLocation each time: an unbounded loop
+    // against the browser's geolocation and Nominatim, whose usage policy
+    // forbids exactly that.
+    const key = `${location.latitude},${location.longitude}`;
+    if (geocodedFor.current === key) return;
+    geocodedFor.current = key;
+
+    getLocationInfo(location).then(setLocationInfo).catch(console.error);
+  }, [location, requestLocation]);
 
   // Initialize service worker and PWA features
   useEffect(() => {

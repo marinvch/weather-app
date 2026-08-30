@@ -162,3 +162,27 @@ describe("isCoastalLocation / isMountainousLocation", () => {
     expect(isCoastalLocation({ latitude: 40.42, longitude: -3.7 })).toBe(true);
   });
 });
+
+describe("getLocationInfo — request shape", () => {
+  it("sends no custom headers, so the request stays CORS-simple", async () => {
+    // Regression guard. This once sent a User-Agent header, which browsers
+    // forbid scripts from setting and which made the request non-simple —
+    // triggering a CORS preflight Nominatim rejects. Every lookup failed and
+    // silently fell back, so the app always showed its hardcoded default
+    // location. Any header added here reintroduces that.
+    const fetchMock = vi.fn(async () =>
+      nominatimResponse({ city: "Burgas", country: "Bulgaria", country_code: "bg" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getLocationInfo({ latitude: 42.7, longitude: 27.27 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit | undefined,
+    ];
+    expect(url).toContain("nominatim.openstreetmap.org/reverse");
+    expect(init?.headers).toBeUndefined();
+  });
+});
