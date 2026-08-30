@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
-import { useGetMountainForecastQuery } from '@/shared/api/weatherApi';
+import { useMountainForecast } from '@/features/mountain/hooks/useMountainForecast';
 import { useAppSelector } from '@/store/hooks';
 import { Mountain, Wind, Snowflake, AlertTriangle, Eye, Thermometer } from 'lucide-react';
 import type { Coordinates } from '@/shared/types/weather';
@@ -16,7 +16,7 @@ export function MountainDashboard({ coordinates }: MountainDashboardProps) {
     data: weatherData,
     isLoading,
     error,
-  } = useGetMountainForecastQuery(coordinates);
+  } = useMountainForecast(coordinates);
 
   if (isLoading) {
     return (

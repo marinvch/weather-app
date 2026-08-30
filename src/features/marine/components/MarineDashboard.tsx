@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 import { WeatherMap } from '@/shared/ui/WeatherMap';
-import { useGetMarineDataQuery } from '@/shared/api/marineApi';
-import { useGetBasicForecastQuery } from '@/shared/api/weatherApi';
+import { useMarineConditions } from '@/features/marine/hooks/useMarineConditions';
+import { useGetBasicForecastQuery } from '@/shared/api/openMeteoApi';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setLocation, setLocationName } from '@/store/slices/userProfileSlice';
 import { Waves, Wind, Thermometer, Navigation, Map } from 'lucide-react';
@@ -50,7 +50,7 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
     data: marineData,
     isLoading: marineLoading,
     error: marineError,
-  } = useGetMarineDataQuery(coordinates);
+  } = useMarineConditions(coordinates);
 
   const {
     data: weatherData,
@@ -196,20 +196,14 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {weatherData.aiAnalysis && (
-                <div className="p-4 border rounded-lg">
-                  <p className="mb-2 font-medium">AI Analysis</p>
-                  <p className="text-foreground">{weatherData.aiAnalysis.recommendation}</p>
-                  {weatherData.aiAnalysis.profileSpecificTips.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {weatherData.aiAnalysis.profileSpecificTips.map((tip, index) => (
-                        <li key={index} className="text-sm text-muted-foreground">• {tip}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-
+              {/*
+                This branch runs when the marine API has no coverage here, so
+                there is no sea state to advise on. It previously showed the
+                GENERAL persona's advice ("stay hydrated, use sun protection")
+                under a "Marine Activity Recommendations" heading — wrong
+                before the refactor, and now impossible: marine advice needs
+                marine data. The wind and air figures below still apply.
+              */}
               <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2">
                 <div className="p-3 border rounded">
                   <p className="font-medium">Wind Conditions</p>

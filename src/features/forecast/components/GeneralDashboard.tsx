@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { WeatherCard } from '@/shared/ui/WeatherCard';
-import { useGetBasicForecastQuery } from '@/shared/api/weatherApi';
+import { useGeneralForecast } from '@/features/forecast/hooks/useGeneralForecast';
 import { useAppSelector } from '@/store/hooks';
 import type { Coordinates } from '@/shared/types/weather';
 
@@ -16,7 +16,7 @@ export function GeneralDashboard({ coordinates, locationName }: GeneralDashboard
     data: weatherData,
     isLoading,
     error,
-  } = useGetBasicForecastQuery(coordinates);
+  } = useGeneralForecast(coordinates);
 
   if (isLoading) {
     return (

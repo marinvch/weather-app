@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
-import { useGetAgronomicDataQuery, useGetSoilDataQuery } from '@/shared/api/agriculturalApi';
+import { useAgronomicData } from '@/features/agriculture/hooks/useAgronomicData';
+import { useGetSoilDataQuery } from '@/features/agriculture/api/agricultureApi';
 import { useAppSelector } from '@/store/hooks';
 import { Wheat, Droplets, Thermometer, Wind, AlertTriangle, Snowflake } from 'lucide-react';
 import type { Coordinates } from '@/shared/types/weather';
@@ -16,7 +17,7 @@ export function AgriculturalDashboard({ coordinates }: AgriculturalDashboardProp
     data: agronomicData,
     isLoading: agronomicLoading,
     error: agronomicError,
-  } = useGetAgronomicDataQuery(coordinates);
+  } = useAgronomicData(coordinates);
 
   const {
     data: soilData,
