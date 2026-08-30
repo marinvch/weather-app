@@ -42,15 +42,16 @@ describe("AppTheme", () => {
   it("renders a MUI component and lets a className through", () => {
     render(
       <AppTheme>
-        <Button className="custom-tailwind-class">Refresh</Button>
+        <Button className="my-own-class">Refresh</Button>
       </AppTheme>,
     );
 
     const button = screen.getByRole("button", { name: "Refresh" });
     expect(button).toBeInTheDocument();
-    // MUI must not swallow the className — that is what makes Tailwind
-    // utilities usable on MUI components during the migration.
-    expect(button).toHaveClass("custom-tailwind-class");
+    // MUI must not swallow a caller className. Tailwind is gone, but this is
+    // still the escape hatch for one-off styling that does not justify a
+    // theme override.
+    expect(button).toHaveClass("my-own-class");
     expect(button.className).toContain("MuiButton");
   });
 

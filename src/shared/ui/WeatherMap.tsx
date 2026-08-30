@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
-import { Button } from '@/shared/ui/button';
-import { MapPin, Layers } from 'lucide-react';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import type { Coordinates } from '@/shared/types/weather';
 
 // Fix for default markers in Leaflet with Webpack
@@ -204,106 +210,97 @@ export function WeatherMap({ coordinates, locationName, onLocationSelect, classN
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Layers className="w-5 h-5" />
-            Weather Map
-          </CardTitle>
-
+      <CardHeader
+        title="Weather map"
+        slotProps={{ title: { variant: 'h6', component: 'h2' } }}
+        action={
           <Button
-            size="sm"
-            variant="outline"
+            size="small"
+            variant="outlined"
+            startIcon={<MyLocationIcon />}
             onClick={centerOnLocation}
-            className="flex items-center gap-1"
           >
-            <MapPin className="w-3 h-3" />
-            Center
+            Centre
           </Button>
-        </div>
-      </CardHeader>
+        }
+      />
 
-      <CardContent className="space-y-4">
-        {/* Weather Layer Controls - Windy style */}
-        <div className="space-y-2">
-          <div className="text-sm font-medium text-gray-700">Weather Layers</div>
-          <div className="flex flex-wrap gap-2">
-            {weatherLayers.map((layer) => (
-              <Button
-                key={layer.id}
-                size="sm"
-                variant={layer.active ? "default" : "outline"}
-                onClick={() => toggleWeatherLayer(layer.id)}
-                className={`flex items-center gap-1 transition-all`}
-              >
-                {layer.icon}
-                {layer.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Map Container */}
-        <div className="relative h-96 w-full rounded-xl overflow-hidden border-2 border-gray-200 shadow-lg">
-          <div ref={mapRef} className="h-full w-full" />
-
-          {/* Controls Overlay */}
-          <div className="absolute top-4 left-4 border-2 border-gray-600 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md text-sm">
-            <div className="font-medium text-gray-800">🗺️ Interactive Weather Map</div>
-            <div className="text-gray-600 text-xs">Click anywhere to select location</div>
-          </div>
-
-          {/* Active Layers Indicator */}
-          {weatherLayers.some(layer => layer.active) && (
-            <div className="absolute top-4 right-4 border-2 border-gray-600 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md text-gray-800 text-sm">
-              <div className="font-medium">Weather Data Active</div>
-              <div className="text-muted-foreground text-xs">
-                {weatherLayers.filter(layer => layer.active).length} layer(s) shown
-              </div>
-            </div>
+      <CardContent>
+        <Stack spacing={2}>
+          {/*
+            Empty today: the OpenWeatherMap demo overlay tiles were removed and
+            no replacement provider is wired in, so this renders nothing rather
+            than an empty control strip.
+          */}
+          {weatherLayers.length > 0 && (
+            <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+              {weatherLayers.map((layer) => (
+                <Button
+                  key={layer.id}
+                  size="small"
+                  variant={layer.active ? 'contained' : 'outlined'}
+                  onClick={() => toggleWeatherLayer(layer.id)}
+                >
+                  {layer.name}
+                </Button>
+              ))}
+            </Stack>
           )}
 
-          {/* Zoom to Location Button */}
-          <div className="absolute bottom-4 right-4">
-            <Button
-              size="sm"
-              onClick={centerOnLocation}
-              className="border-2 border-gray-800 text-gray-800 shadow-lg flex items-center gap-1 hover:border-cyan-600 hover:text-cyan-600"
-            >
-              <MapPin className="w-3 h-3" />
-              My Location
-            </Button>
-          </div>
-        </div>
+          <Box
+            sx={{
+              position: 'relative',
+              height: 384,
+              width: '100%',
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Box ref={mapRef} sx={{ height: '100%', width: '100%' }} />
 
-        {/* Current Location Info - Enhanced */}
-        <div className="p-4 rounded-lg border-2 border-gray-300">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div>
-              <div className="font-medium text-gray-800">📍 Current Location</div>
-              <div className="text-gray-600">{locationName}</div>
-            </div>
-            <div>
-              <div className="font-medium text-gray-800">🌐 Coordinates</div>
-              <div className="text-gray-600 font-mono">
+            {onLocationSelect && (
+              // zIndex 400 clears Leaflet's own panes, which sit at 200-400.
+              <Paper
+                elevation={2}
+                sx={{ position: 'absolute', top: 12, left: 12, px: 1.5, py: 1, zIndex: 400 }}
+              >
+                <Typography variant="caption">
+                  Click anywhere to choose a location
+                </Typography>
+              </Paper>
+            )}
+
+            <Box sx={{ position: 'absolute', bottom: 12, right: 12, zIndex: 400 }}>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<MyLocationIcon />}
+                onClick={centerOnLocation}
+              >
+                My location
+              </Button>
+            </Box>
+          </Box>
+
+          <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ flex: '1 1 200px' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Location
+              </Typography>
+              <Typography variant="body2">{locationName}</Typography>
+            </Box>
+            <Box sx={{ flex: '1 1 200px' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Coordinates
+              </Typography>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                 {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Instructions */}
-        {onLocationSelect && (
-          <div className="text-sm border p-3 rounded-lg">
-            <div className="font-medium mb-1">💡 How to use this map:</div>
-            <ul className="text-muted-foreground space-y-1 text-xs">
-              <li>• <strong>Click anywhere</strong> on the map to select a new weather location</li>
-              <li>• <strong>Toggle weather layers</strong> above to see precipitation, temperature, wind, etc.</li>
-              <li>• <strong>Use layer control</strong> (top-right of map) to switch between Satellite, Terrain, etc.</li>
-              <li>• <strong>Zoom and pan</strong> to explore different regions</li>
-            </ul>
-          </div>
-        )}
+              </Typography>
+            </Box>
+          </Stack>
+        </Stack>
       </CardContent>
     </Card>
   );

@@ -1,82 +1,78 @@
-import { Users, Anchor, Mountain, Wheat } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { setProfile } from '@/store/slices/userProfileSlice';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
-import type { UserProfile } from '@/shared/types/weather';
+import FormControl from "@mui/material/FormControl";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import type { SelectChangeEvent } from "@mui/material/Select";
+import PeopleIcon from "@mui/icons-material/People";
+import SailingIcon from "@mui/icons-material/Sailing";
+import TerrainIcon from "@mui/icons-material/Terrain";
+import GrassIcon from "@mui/icons-material/Grass";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setProfile } from "@/store/slices/userProfileSlice";
+import type { UserProfile } from "@/shared/types/weather";
 
-const profileConfig = {
+/**
+ * The four personas, in one place.
+ *
+ * This is the closest thing the app has to a profile registry. A fifth persona
+ * still means editing the UserProfile union, the switch in App.tsx and this
+ * map — the compiler catches the first two but not this one.
+ */
+const PROFILES: Record<
+  UserProfile,
+  { label: string; description: string; icon: React.ReactNode }
+> = {
   general: {
-    label: 'General Public',
-    description: 'Basic weather forecast for daily activities',
-    icon: Users,
-    color: 'text-blue-600',
+    label: "General",
+    description: "What to wear today",
+    icon: <PeopleIcon fontSize="small" />,
   },
   marine: {
-    label: 'Marine & Fishing',
-    description: 'Sea conditions, waves, tides, and marine weather',
-    icon: Anchor,
-    color: 'text-cyan-600',
+    label: "Marine & fishing",
+    description: "Sea state, waves, whether to go out",
+    icon: <SailingIcon fontSize="small" />,
   },
   mountain: {
-    label: 'Mountaineering',
-    description: 'High-altitude weather, avalanche risk, mountain conditions',
-    icon: Mountain,
-    color: 'text-green-600',
+    label: "Mountaineering",
+    description: "Ascent prep, avalanche, altitude wind",
+    icon: <TerrainIcon fontSize="small" />,
   },
   agriculture: {
-    label: 'Agriculture',
-    description: 'Soil conditions, frost risk, farming weather data',
-    icon: Wheat,
-    color: 'text-yellow-600',
+    label: "Growing",
+    description: "Soil, frost, irrigation",
+    icon: <GrassIcon fontSize="small" />,
   },
-} as const;
+};
 
 export function ProfileSelector() {
   const dispatch = useAppDispatch();
-  const currentProfile = useAppSelector((state) => state.userProfile.profile);
+  const profile = useAppSelector((state) => state.userProfile.profile);
 
-  const handleProfileChange = (profile: UserProfile) => {
-    dispatch(setProfile(profile));
+  const handleChange = (event: SelectChangeEvent) => {
+    dispatch(setProfile(event.target.value as UserProfile));
   };
 
   return (
-    <div className="w-full max-w-sm">
-      <Select value={currentProfile} onValueChange={handleProfileChange}>
-        <SelectTrigger className="w-full">
-          <SelectValue>
-            <div className="flex items-center gap-2">
-              {(() => {
-                const config = profileConfig[currentProfile];
-                const Icon = config.icon;
-                return (
-                  <>
-                    <Icon className={`h-4 w-4 ${config.color}`} />
-                    <span>{config.label}</span>
-                  </>
-                );
-              })()}
-            </div>
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {Object.entries(profileConfig).map(([key, config]) => {
-            const Icon = config.icon;
-            return (
-              <SelectItem key={key} value={key}>
-                <div className="flex items-start gap-3 py-1">
-                  <Icon className={`h-4 w-4 mt-0.5 ${config.color}`} />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{config.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {config.description}
-                    </span>
-                  </div>
-                </div>
-              </SelectItem>
-            );
-          })}
-        </SelectContent>
+    <FormControl size="small" sx={{ minWidth: 200 }}>
+      <Select
+        value={profile}
+        onChange={handleChange}
+        inputProps={{ "aria-label": "Weather profile" }}
+        renderValue={(value) => PROFILES[value as UserProfile].label}
+      >
+        {(Object.keys(PROFILES) as UserProfile[]).map((key) => (
+          <MenuItem key={key} value={key}>
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              {PROFILES[key].icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={PROFILES[key].label}
+              secondary={PROFILES[key].description}
+            />
+          </MenuItem>
+        ))}
       </Select>
-    </div>
+    </FormControl>
   );
 }

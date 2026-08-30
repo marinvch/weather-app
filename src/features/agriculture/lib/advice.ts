@@ -1,3 +1,4 @@
+import { soilMoisturePercent } from "@/features/agriculture/lib/conditions";
 import type {
   AgriculturalAnalysis,
   AgriculturalResponse,
@@ -26,7 +27,8 @@ export const adviseAgriculture = (
 
   const temp = agri.current.temperature_2m;
   const soilTemp = agri.current.soil_temperature_0cm;
-  const soilMoisture = agri.current.soil_moisture_0_1cm;
+  // m³/m³ from the API; the thresholds below are percentages.
+  const soilMoisture = soilMoisturePercent(agri.current.soil_moisture_0_1cm);
   const humidity = agri.current.relative_humidity_2m;
 
   let soilConditions: "excellent" | "good" | "adequate" | "poor" = "good";
@@ -90,7 +92,7 @@ export const adviseAgriculture = (
   return {
     recommendation: `${soilConditions} soil conditions, ${frostRisk} frost risk`,
     confidence: 90,
-    reasoning: `Soil: ${soilTemp}°C/${soilMoisture}%, Air: ${temp}°C, Humidity: ${humidity}%`,
+    reasoning: `Soil: ${soilTemp}°C/${soilMoisture.toFixed(1)}%, Air: ${temp}°C, Humidity: ${humidity}%`,
     riskLevel,
     profileSpecificTips: tips,
     soilConditions,

@@ -1,276 +1,219 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
-import { useMountainForecast } from '@/features/mountain/hooks/useMountainForecast';
-import { useAppSelector } from '@/store/hooks';
-import { Mountain, Wind, Snowflake, AlertTriangle, Eye, Thermometer } from 'lucide-react';
-import type { Coordinates } from '@/shared/types/weather';
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardHeader from "@mui/material/CardHeader";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { AdviceCard } from "@/shared/ui/AdviceCard";
+import { QueryState } from "@/shared/ui/QueryState";
+import { useAppSelector } from "@/store/hooks";
+import { useMountainForecast } from "@/features/mountain/hooks/useMountainForecast";
+import {
+  avalancheRisk,
+  severityColor,
+  visibilityCondition,
+  windCondition,
+} from "@/features/mountain/lib/conditions";
+import type { Coordinates } from "@/shared/types/weather";
 
 interface MountainDashboardProps {
   coordinates: Coordinates;
   locationName: string;
 }
 
-export function MountainDashboard({ coordinates }: MountainDashboardProps) {
-  const units = useAppSelector((state) => state.userProfile.units);
+function StatTile({
+  label,
+  value,
+  detail,
+  color,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  color?: "success" | "warning" | "error";
+}) {
+  return (
+    <Card sx={{ flex: "1 1 220px", minWidth: 220 }}>
+      <CardContent sx={{ textAlign: "center" }}>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {label}
+        </Typography>
+        <Typography
+          variant="h4"
+          sx={{ fontWeight: 700, my: 0.5, color: color ? `${color}.main` : undefined }}
+        >
+          {value}
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {detail}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
 
-  const {
-    data: weatherData,
-    isLoading,
-    error,
-  } = useMountainForecast(coordinates);
-
-  if (isLoading) {
+/** One altitude band in the wind table. */
+function WindRow({
+  label,
+  sublabel,
+  speed,
+  units,
+}: {
+  label: string;
+  sublabel: string;
+  speed: number | undefined;
+  units: "metric" | "imperial";
+}) {
+  // 80 m and 120 m winds are optional in the Open-Meteo response, so "missing"
+  // and "calm" must not look the same.
+  if (speed === undefined) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p>Loading mountain conditions...</p>
-        </div>
-      </div>
+      <Stack
+        direction="row"
+        sx={{ alignItems: "center", justifyContent: "space-between", py: 1.5 }}
+      >
+        <Box>
+          <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {sublabel}
+          </Typography>
+        </Box>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Not reported here
+        </Typography>
+      </Stack>
     );
   }
 
-  if (error || !weatherData || !weatherData.current || !weatherData.hourly) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <p className="text-destructive">Failed to load mountain weather data</p>
-          <p className="text-sm text-muted-foreground">Please try again later</p>
-        </div>
-      </div>
-    );
-  }
-
-  const current = weatherData.current;
-  const hourly = weatherData.hourly;
-
-  // Helper functions
-  const getWindCondition = (speed: number) => {
-    if (speed < 20) return { text: 'Calm', color: 'text-green-600', risk: 'low' };
-    if (speed < 40) return { text: 'Breezy', color: 'text-yellow-600', risk: 'medium' };
-    if (speed < 60) return { text: 'Windy', color: 'text-orange-600', risk: 'high' };
-    return { text: 'Dangerous', color: 'text-red-600', risk: 'extreme' };
-  };
-
-  const getVisibilityCondition = (weatherCode: number) => {
-    if ([45, 48].includes(weatherCode)) return { text: 'Poor (Fog)', color: 'text-red-600' };
-    if ([51, 53, 55, 61, 63, 65].includes(weatherCode)) return { text: 'Reduced (Rain)', color: 'text-yellow-600' };
-    if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) return { text: 'Poor (Snow)', color: 'text-orange-600' };
-    return { text: 'Good', color: 'text-green-600' };
-  };
-
-  const getAvalancheRisk = (temp: number, windSpeed: number, weatherCode: number) => {
-    let risk = 0;
-
-    // Temperature factor
-    if (temp > -2 && temp < 2) risk += 2; // Rapid warming/cooling
-    if (temp > 0) risk += 1; // Above freezing
-
-    // Wind factor  
-    if (windSpeed > 40) risk += 2;
-    if (windSpeed > 60) risk += 1;
-
-    // Precipitation factor
-    if ([71, 73, 75, 77, 85, 86].includes(weatherCode)) risk += 2; // Snow
-    if ([61, 63, 65].includes(weatherCode) && temp < 5) risk += 1; // Rain on snow
-
-    if (risk <= 2) return { level: 'Low', color: 'text-green-600', description: 'Generally safe conditions' };
-    if (risk <= 4) return { level: 'Moderate', color: 'text-yellow-600', description: 'Use caution on steep slopes' };
-    if (risk <= 6) return { level: 'High', color: 'text-orange-600', description: 'Avoid steep terrain' };
-    return { level: 'Extreme', color: 'text-red-600', description: 'Travel not recommended' };
-  };
-
-  const wind10m = getWindCondition(current.wind_speed_10m || 0);
-  const wind80m = getWindCondition(current.wind_speed_80m || 0);
-  const wind120m = getWindCondition(current.wind_speed_120m || 0);
-  const visibility = getVisibilityCondition(current.weather_code);
-  const avalancheRisk = getAvalancheRisk(current.temperature_2m, current.wind_speed_10m || 0, current.weather_code);
+  const condition = windCondition(speed);
+  const display =
+    units === "metric"
+      ? `${Math.round(speed)} km/h`
+      : `${Math.round(speed * 0.621371)} mph`;
 
   return (
-    <div className="space-y-6">
-      {/* Current Mountain Conditions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="p-4 text-center">
-          <div className="flex items-center gap-2 justify-center text-sm mb-2">
-            <Thermometer className="h-4 w-4 text-green-600" /> Temperature
-          </div>
-          <p className="text-2xl font-bold">
-            {units === 'metric'
-              ? `${Math.round(current.temperature_2m)}°C`
-              : `${Math.round(current.temperature_2m * 9 / 5 + 32)}°F`
-            }
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Feels like {Math.round(current.temperature_2m - 2)}°
-          </p>
-        </div>
+    <Stack
+      direction="row"
+      sx={{ alignItems: "center", justifyContent: "space-between", py: 1.5 }}
+    >
+      <Box>
+        <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {sublabel}
+        </Typography>
+      </Box>
+      <Stack spacing={0.5} sx={{ alignItems: "flex-end" }}>
+        <Typography sx={{ fontWeight: 600 }}>{display}</Typography>
+        <Chip
+          size="small"
+          label={condition.text}
+          color={severityColor(condition.severity)}
+        />
+      </Stack>
+    </Stack>
+  );
+}
 
-        <div className="p-4 text-center">
-          <div className="flex items-center gap-2 justify-center text-sm mb-2">
-            <Wind className="h-4 w-4 text-green-600" /> Wind (Surface)
-          </div>
-          <p className="text-2xl font-bold">
-            {units === 'metric'
-              ? `${Math.round(current.wind_speed_10m || 0)} km/h`
-              : `${Math.round((current.wind_speed_10m || 0) * 0.621371)} mph`
-            }
-          </p>
-          <p className={`text-sm ${wind10m.color}`}>{wind10m.text}</p>
-        </div>
+export function MountainDashboard({ coordinates }: MountainDashboardProps) {
+  const units = useAppSelector((state) => state.userProfile.units);
+  const { data, isLoading, error, advice } = useMountainForecast(coordinates);
 
-        <div className="p-4 text-center">
-          <div className="flex items-center gap-2 justify-center text-sm mb-2">
-            <Eye className="h-4 w-4 text-green-600" /> Visibility
-          </div>
-          <p className={`text-2xl font-bold ${visibility.color}`}>
-            {visibility.text.split(' ')[0]}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {visibility.text.includes('(') ? visibility.text.split('(')[1].replace(')', '') : 'Clear conditions'}
-          </p>
-        </div>
-      </div>      {/* Wind at Different Altitudes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Mountain className="h-5 w-5 text-green-600" />
-            Wind at Altitude
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Surface (10m)</p>
-                <p className="text-sm text-muted-foreground">Base conditions</p>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold">
-                  {units === 'metric'
-                    ? `${Math.round(current.wind_speed_10m || 0)} km/h`
-                    : `${Math.round((current.wind_speed_10m || 0) * 0.621371)} mph`
-                  }
-                </p>
-                <p className={`text-sm ${wind10m.color}`}>{wind10m.text}</p>
-              </div>
-            </div>
+  const current = data?.current;
 
-            <div className="flex justify-between items-center p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">Mid-altitude (80m)</p>
-                <p className="text-sm text-muted-foreground">Ridge conditions</p>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold">
-                  {units === 'metric'
-                    ? `${Math.round(current.wind_speed_80m || 0)} km/h`
-                    : `${Math.round((current.wind_speed_80m || 0) * 0.621371)} mph`
-                  }
-                </p>
-                <p className={`text-sm ${wind80m.color}`}>{wind80m.text}</p>
-              </div>
-            </div>
+  return (
+    <QueryState
+      isLoading={isLoading}
+      error={error}
+      hasData={Boolean(current)}
+      loadingLabel="Loading mountain conditions…"
+      errorTitle="Could not load mountain conditions"
+      incompleteMessage="The forecast came back without current conditions for this point."
+    >
+      {() => current && (
+        <Stack spacing={3}>
+          {(() => {
+            const wind = windCondition(current.wind_speed_10m ?? 0);
+            const visibility = visibilityCondition(current.weather_code);
+            const avalanche = avalancheRisk(
+              current.temperature_2m,
+              current.wind_speed_10m ?? 0,
+              current.weather_code,
+            );
 
-            <div className="flex justify-between items-center p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">High altitude (120m)</p>
-                <p className="text-sm text-muted-foreground">Peak conditions</p>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold">
-                  {units === 'metric'
-                    ? `${Math.round(current.wind_speed_120m || 0)} km/h`
-                    : `${Math.round((current.wind_speed_120m || 0) * 0.621371)} mph`
-                  }
-                </p>
-                <p className={`text-sm ${wind120m.color}`}>{wind120m.text}</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            return (
+              <>
+                <Alert severity={avalanche.severity === "low" ? "success" : "warning"}>
+                  <AlertTitle>Avalanche risk: {avalanche.level}</AlertTitle>
+                  {avalanche.description}
+                </Alert>
 
-      {/* Avalanche Risk Assessment */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
-            Avalanche Risk Assessment
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-4 h-4 rounded-full ${avalancheRisk.level === 'Low' ? 'bg-green-600' :
-                  avalancheRisk.level === 'Moderate' ? 'bg-yellow-600' :
-                    avalancheRisk.level === 'High' ? 'bg-orange-600' : 'bg-red-600'
-                  }`} />
-                <span className={`font-semibold text-lg ${avalancheRisk.color}`}>
-                  {avalancheRisk.level}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                {avalancheRisk.description}
-              </p>
+                <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 2 }}>
+                  <StatTile
+                    label="Temperature"
+                    value={
+                      units === "metric"
+                        ? `${Math.round(current.temperature_2m)}°C`
+                        : `${Math.round((current.temperature_2m * 9) / 5 + 32)}°F`
+                    }
+                    detail={`Feels like ${Math.round(current.temperature_2m - 2)}°`}
+                  />
+                  <StatTile
+                    label="Wind (surface)"
+                    value={
+                      units === "metric"
+                        ? `${Math.round(current.wind_speed_10m ?? 0)} km/h`
+                        : `${Math.round((current.wind_speed_10m ?? 0) * 0.621371)} mph`
+                    }
+                    detail={wind.text}
+                    color={severityColor(wind.severity)}
+                  />
+                  <StatTile
+                    label="Visibility"
+                    value={visibility.text}
+                    detail={visibility.cause}
+                    color={severityColor(visibility.severity)}
+                  />
+                </Stack>
+              </>
+            );
+          })()}
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Temperature</p>
-                  <p className="text-muted-foreground">{Math.round(current.temperature_2m)}°C</p>
-                </div>
-                <div>
-                  <p className="font-medium">Wind Speed</p>
-                  <p className="text-muted-foreground">{Math.round(current.wind_speed_10m || 0)} km/h</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          {advice && (
+            <AdviceCard advice={advice} title="Preparing for the ascent" />
+          )}
 
-      {/* Hourly Mountain Forecast */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mountain Forecast (24 Hours)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <div className="flex space-x-4 pb-4 min-w-max">
-              {hourly.time.slice(0, 24).map((time, index) => {
-                const temp = hourly.temperature_2m[index];
-                const windSpeed = hourly.wind_speed_10m[index];
-                const precipitation = hourly.precipitation?.[index] || 0;
-                const hour = new Date(time).getHours();
-                const windCondition = getWindCondition(windSpeed);
-
-                return (
-                  <div key={time} className="text-center min-w-[100px] space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {hour === 0 ? '12 AM' : hour <= 12 ? `${hour} AM` : `${hour - 12} PM`}
-                    </p>
-
-                    <p className="font-semibold text-lg">
-                      {Math.round(temp)}°
-                    </p>
-
-                    <div className="flex flex-col items-center">
-                      <Wind className={`h-4 w-4 ${windCondition.color}`} />
-                      <p className="text-xs">{Math.round(windSpeed)} km/h</p>
-                    </div>
-
-                    {precipitation > 0 && (
-                      <div className="flex flex-col items-center">
-                        <Snowflake className="h-4 w-4 text-blue-500" />
-                        <p className="text-xs">{precipitation.toFixed(1)}mm</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          <Card>
+            <CardHeader
+              title="Wind at altitude"
+              subheader="Ridge exposure is not visible in the surface figure"
+              slotProps={{ title: { variant: "h6", component: "h2" } }}
+            />
+            <CardContent>
+              <WindRow
+                label="Surface (10 m)"
+                sublabel="Base conditions"
+                speed={current.wind_speed_10m}
+                units={units}
+              />
+              <WindRow
+                label="Mid-altitude (80 m)"
+                sublabel="Ridge conditions"
+                speed={current.wind_speed_80m}
+                units={units}
+              />
+              <WindRow
+                label="High altitude (120 m)"
+                sublabel="Summit conditions"
+                speed={current.wind_speed_120m}
+                units={units}
+              />
+            </CardContent>
+          </Card>
+        </Stack>
+      )}
+    </QueryState>
   );
 }

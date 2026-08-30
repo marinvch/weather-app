@@ -37,7 +37,21 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["leaflet"],
+    include: [
+      "leaflet",
+      // Pre-bundle MUI and Emotion as whole units. Source code imports deep
+      // paths (`@mui/material/Card`) for tree-shaking, and without these lines
+      // Vite optimises each of the ~54 deep paths as its own entry. The shared
+      // chunks it generates then reference Emotion both with and without the
+      // `?v=` cache-busting query, which loads two instances of it — two React
+      // contexts, and every MUI component dies with "Invalid hook call".
+      // Dev-only: this does not affect the production build.
+      "@mui/material",
+      "@mui/material/styles",
+      "@mui/icons-material",
+      "@emotion/react",
+      "@emotion/styled",
+    ],
   },
   test: {
     environment: "jsdom",

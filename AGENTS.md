@@ -10,9 +10,10 @@ caching.
 React 19 + TypeScript 5.8, Vite 7, Redux Toolkit 2 (RTK Query), Recharts, react-leaflet. Package
 manager: npm. No backend — all data comes from public Open-Meteo endpoints.
 
-**Two design systems, on purpose, mid-migration.** MUI v9 (`@mui/material` + Emotion) is the
-direction; TailwindCSS 3 + shadcn/ui (Radix + CVA) is what the UI is built from today. Build new UI
-in MUI. See *MUI / Tailwind interop* below before changing anything about how either is configured.
+**One design system: MUI v9** (`@mui/material` + Emotion). Tailwind, shadcn/ui, Radix, CVA,
+`tailwind-merge` and the `cn()` helper were all removed — there is no second styling engine and no
+`className`-based utility layer. Style with `sx` and the theme; put anything shared in
+`@/shared/theme`. See *MUI setup* below.
 
 ## Layout
 
@@ -31,27 +32,36 @@ Imports use the **`@/` alias** for `src/` (`tsconfig.app.json` paths + `vite.con
 both must agree). Use it for anything crossing a directory: the ESLint boundary rules match on the
 alias, so a relative `../../features/marine` slips past them.
 
-## MUI / Tailwind interop
+## MUI v9 — system props are gone
 
-Three settings hold this together. They are a set — changing one alone breaks the UI:
+**v9 removed system props.** `alignItems`, `justifyContent`, `color`, `fontWeight`, `mb` and the
+rest are no longer accepted as direct props on `Stack`, `Typography`, `Box` — they go in `sx`:
 
-- **`StyledEngineProvider injectFirst`** (`@/shared/theme/AppTheme`). MUI component styles and
-  Tailwind utilities are both single-class selectors, so source order decides. This is what makes a
-  `className` on a MUI component actually win.
-- **No `<CssBaseline />`, and Tailwind preflight stays on.** MUI's docs say to swap one for the
-  other. Do not do that yet: Tailwind's `border` utilities set only `border-width` and rely on
-  preflight for `border-style: solid`, and this UI is built on `border`, `border-2` and `border-b-2`
-  throughout. Dropping preflight erases every border in the app, silently.
-- **No `modularCssLayers`.** That is the correct answer against Tailwind v4, which emits its own
-  cascade layers. This repo is on Tailwind **v3**, whose output is unlayered — and unlayered CSS
-  beats every layer regardless of specificity, so putting MUI in `@layer mui` would let preflight
-  override MUI's own component styles.
+```tsx
+<Stack direction="row" alignItems="center">          // v7, fails to compile on v9
+<Stack direction="row" sx={{ alignItems: "center" }}> // v9
+```
 
-When the shadcn layer is finally gone, flip all three in one commit: drop `injectFirst`, add
-`<CssBaseline />`, set `corePlugins.preflight: false`.
+The failure is a wall of `TS2769: No overload matches this call` naming a missing `component` prop,
+which points nowhere near the real cause. A component's *own* props (`direction`, `spacing`,
+`variant`, `severity`, a `Chip`'s `color`) are unaffected — only the system props moved.
+`@mui/codemod v9.0.0/system-props` does this automatically on a large file.
 
-`cssVariables: true` is on, so Tailwind can reference MUI's palette as
-`var(--mui-palette-primary-main)`.
+## MUI setup
+
+`@/shared/theme/AppTheme` wraps the app in `ThemeProvider` + `<CssBaseline />`. There is no
+`StyledEngineProvider injectFirst` and no `modularCssLayers` — both existed only to arbitrate
+against Tailwind, and there is nothing left to arbitrate with.
+
+`cssVariables: true` is on, so the palette is readable as `var(--mui-palette-primary-main)` and the
+light/dark `colorSchemes` switch without a re-render. Note `theme.colorSchemes` is not on the
+`Theme` type even though it works at runtime — read `theme.vars` instead.
+
+**`optimizeDeps.include` in `vite.config.ts` is load-bearing.** Deep imports (`@mui/material/Stack`
+and ~50 siblings) make Vite pre-bundle a shared chunk that pulls Emotion in both with and without a
+`?v=` hash, which loads React twice and produces "Invalid hook call" on a blank page. Listing
+`@mui/material`, `@mui/material/styles`, `@mui/icons-material`, `@emotion/react` and
+`@emotion/styled` is what prevents it. Do not remove those entries to "clean up".
 
 ## Running it
 
@@ -59,7 +69,7 @@ When the shadcn layer is finally gone, flip all three in one commit: drop `injec
 npm install
 npm run dev      # Vite dev server, http://localhost:5173
 npm run build    # tsc -b && vite build
-npm run lint     # eslint . — exits 1 on two known baseline errors, see /type-check
+npm run lint     # eslint . — clean; the two shadcn baseline errors went with the files
 npm test          # vitest, watch mode
 npm run test:run  # vitest run, single pass — use this in scripts and CI
 npm run typecheck # tsc -b --force
@@ -92,13 +102,17 @@ three areas still hold — it is not yet evidence the app works.
 - `public/sw.js` pre-caches `/static/js/bundle.js` and `/static/css/main.css`, which are
   Create-React-App paths that do not exist in a Vite build. The API caching works; the app-shell
   precache does not.
-- `.github/copilot-instructions.md` is an older hand-written brief. It is mostly accurate but says
-  geolocation falls back to **London**; the code falls back to Medenrudnik, Burgas, Bulgaria
-  (`src/app/App.tsx`). Trust the code.
+- `.github/copilot-instructions.md` is an older hand-written brief and is now substantially stale:
+  it describes the Tailwind/shadcn stack, the pre-feature folder layout, and a **London**
+  geolocation fallback (the code falls back to Medenrudnik, Burgas, Bulgaria — `src/app/App.tsx`).
+  Trust the code and this file.
 - Marine, historical and forecast data come from **three different Open-Meteo hosts**
   (`api.`, `marine-api.`, `archive-api.`) — a copied `baseUrl` is the usual cause of a 404.
-- The "AI analysis" is deterministic rule-based scoring in `@/shared/api/weatherApi` and its
-  siblings. There is no model call; confidence scores are hand-assigned constants.
+- The "AI analysis" is deterministic rule-based scoring in each feature's `lib/advice.ts`. There is
+  no model call; confidence scores are hand-assigned constants, and the UI says so.
+- **Open-Meteo's `soil_moisture_*` fields are m³/m³, not percentages.** Convert with
+  `soilMoisturePercent` before comparing against any threshold — raw values never exceed 1, so every
+  reading on Earth otherwise scores "Very dry — irrigate immediately".
 
 ## Where to look
 
@@ -111,11 +125,13 @@ Read the root, match your work to a row, then open **one** leaf:
 
 ## Conventions
 
-- Components are named exports; slices are default exports. New UI is MUI — see the interop section before touching styling config.
-- Tailwind classes are merged with `cn()` from `@/shared/lib/utils` — never concatenate class strings
-  by hand, or variant overrides stop winning.
-- Profile-conditional styling goes through `@/shared/theme/profileThemes` (`getThemeStyle`,
-  `getButtonClasses`), not inline per-profile ternaries in components.
+- Components are named exports; slices are default exports.
+- Styling is `sx` and the theme. There is no `className` utility layer and no `cn()` helper — if a
+  style is worth sharing, it belongs in `@/shared/theme/theme.ts` (`components` overrides or a
+  palette entry), not copied between `sx` props.
+- **`QueryState`'s `children` is a render prop, not a node** — `{() => …}`, never `{…}`. JSX
+  children are evaluated by the *caller*, so a node would run `data!.hourly.time` while `data` is
+  still undefined, which is the exact crash `QueryState` exists to prevent.
 
 ## Context files
 

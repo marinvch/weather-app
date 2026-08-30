@@ -12,7 +12,10 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardHeader from "@mui/material/CardHeader";
+import Typography from "@mui/material/Typography";
 import { format } from 'date-fns';
 import type { HourlyWeather, DailyWeather } from '@/shared/types/weather';
 
@@ -202,18 +205,21 @@ export function WeatherChart({ data, type, title, className }: WeatherChartProps
         );
 
       default:
-        return <div>Chart type not supported</div>;
+        return (
+          <Typography sx={{ color: "text.secondary" }}>
+            Chart type not supported
+          </Typography>
+        );
     }
   };
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {renderChart()}
-      </CardContent>
+      <CardHeader
+        title={title}
+        slotProps={{ title: { variant: "h6", component: "h2" } }}
+      />
+      <CardContent>{renderChart()}</CardContent>
     </Card>
   );
 }

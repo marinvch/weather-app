@@ -61,7 +61,7 @@ export const adviseGeneral = (weather: WeatherResponse): AIAnalysis => {
   return {
     recommendation,
     confidence: 85,
-    reasoning: `Based on temperature ${temp}°C, wind speed ${wind} km/h, and weather conditions`,
+    reasoning: `temperature ${temp}°C, wind speed ${wind} km/h, and weather conditions`,
     riskLevel,
     profileSpecificTips: tips,
   };

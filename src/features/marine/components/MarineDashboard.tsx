@@ -1,451 +1,330 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
-import { Button } from '@/shared/ui/button';
-import { WeatherMap } from '@/shared/ui/WeatherMap';
-import { useMarineConditions } from '@/features/marine/hooks/useMarineConditions';
-import { useGetBasicForecastQuery } from '@/shared/api/openMeteoApi';
-import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { setLocation, setLocationName } from '@/store/slices/userProfileSlice';
-import { Waves, Wind, Thermometer, Navigation, Map } from 'lucide-react';
-import { getButtonClasses } from '@/shared/theme/profileThemes';
-import type { Coordinates } from '@/shared/types/weather';
+import { useState } from "react";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardHeader from "@mui/material/CardHeader";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import MapIcon from "@mui/icons-material/Map";
+import PlaceIcon from "@mui/icons-material/Place";
+import { AdviceCard } from "@/shared/ui/AdviceCard";
+import { QueryState } from "@/shared/ui/QueryState";
+import { WeatherMap } from "@/shared/ui/WeatherMap";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setLocation, setLocationName } from "@/store/slices/userProfileSlice";
+import { useGetBasicForecastQuery } from "@/shared/api/openMeteoApi";
+import { useMarineConditions } from "@/features/marine/hooks/useMarineConditions";
+import {
+  directionText,
+  seaCondition,
+  seaSeverityColor,
+} from "@/features/marine/lib/seaState";
+import type { Coordinates } from "@/shared/types/weather";
 
 interface MarineDashboardProps {
   coordinates: Coordinates;
   locationName: string;
 }
 
-export function MarineDashboard({ coordinates, locationName }: MarineDashboardProps) {
+/**
+ * Offered when the marine API has no coverage for the selected point. An inland
+ * user needs somewhere to go, not just an error. Every coordinate must sit on
+ * open water, or the suggestion leads back to this same empty state.
+ */
+const SUGGESTED_LOCATIONS = [
+  { name: "Santander, Spain", coords: { latitude: 43.48, longitude: -3.8 } },
+  { name: "Baltic Sea, Germany", coords: { latitude: 54.5445, longitude: 10.2275 } },
+  { name: "Gibraltar, Mediterranean", coords: { latitude: 36.1408, longitude: -5.3536 } },
+  { name: "Miami Beach, FL", coords: { latitude: 25.7907, longitude: -80.12 } },
+];
+
+function StatTile({
+  label,
+  value,
+  detail,
+  color,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  color?: "success" | "warning" | "error";
+}) {
+  return (
+    <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
+      <CardContent sx={{ textAlign: "center" }}>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {label}
+        </Typography>
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 700,
+            my: 0.5,
+            color: color ? `${color}.main` : undefined,
+          }}
+        >
+          {value}
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {detail}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function MarineDashboard({
+  coordinates,
+  locationName,
+}: MarineDashboardProps) {
   const units = useAppSelector((state) => state.userProfile.units);
   const dispatch = useAppDispatch();
   const [showMap, setShowMap] = useState(false);
-
-  // Offered when the selected location has no marine coverage — an inland user
-  // needs somewhere to go, not just an error. Every coordinate here must sit on
-  // open water or Open-Meteo's marine API returns an empty series.
-  const suggestedLocations = [
-    { name: "Santander, Spain", coords: { latitude: 43.4800, longitude: -3.8000 } },
-    { name: "Baltic Sea, Germany", coords: { latitude: 54.5445, longitude: 10.2275 } },
-    { name: "Gibraltar, Mediterranean", coords: { latitude: 36.1408, longitude: -5.3536 } },
-    { name: "Miami Beach, FL", coords: { latitude: 25.7907, longitude: -80.1200 } }
-  ];
-
-  const switchToLocation = (name: string, coords: Coordinates) => {
-    dispatch(setLocation(coords));
-    dispatch(setLocationName(name));
-  };
-
-  const handleLocationSelect = (coords: Coordinates, name: string) => {
-    dispatch(setLocation(coords));
-    dispatch(setLocationName(name));
-  };
-
-  // Helper function for wind direction
-  const getDirectionText = (degrees: number) => {
-    const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-    return directions[Math.round(degrees / 22.5) % 16];
-  };
 
   const {
     data: marineData,
     isLoading: marineLoading,
     error: marineError,
+    advice,
   } = useMarineConditions(coordinates);
 
+  // The plain forecast too: wind and air temperature matter to a boat even
+  // where there is no wave data.
   const {
     data: weatherData,
     isLoading: weatherLoading,
     error: weatherError,
   } = useGetBasicForecastQuery(coordinates);
 
-  if (marineLoading || weatherLoading) {
+  const selectLocation = (name: string, coords: Coordinates) => {
+    dispatch(setLocation(coords));
+    dispatch(setLocationName(name));
+  };
+
+  const mapToggle = (
+    <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<MapIcon />}
+        onClick={() => setShowMap((open) => !open)}
+      >
+        {showMap ? "Hide map" : "Show map"}
+      </Button>
+    </Stack>
+  );
+
+  const map = showMap && (
+    <WeatherMap
+      coordinates={coordinates}
+      locationName={locationName}
+      onLocationSelect={(coords, name) => selectLocation(name, coords)}
+    />
+  );
+
+  // Both sources failed — nothing to show at all.
+  if (
+    (marineError || !marineData) &&
+    (weatherError || !weatherData) &&
+    !marineLoading &&
+    !weatherLoading
+  ) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="w-8 h-8 mx-auto mb-4 border-b-2 rounded-full animate-spin border-cyan-600"></div>
-          <p>Loading marine conditions...</p>
-        </div>
-      </div>
+      <QueryState
+        isLoading={false}
+        error={weatherError ?? marineError}
+        hasData={false}
+        loadingLabel=""
+        errorTitle="Could not load conditions"
+      >
+        {() => null}
+      </QueryState>
     );
   }
 
-  // If both marine and weather data fail, show error
-  if ((marineError || !marineData) && (weatherError || !weatherData)) {
+  // Marine data unavailable but the forecast arrived: this is an inland point,
+  // or one the marine model does not cover.
+  if ((marineError || !marineData) && weatherData && !marineLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="space-y-4 text-center">
-          <p className="text-destructive">Failed to load weather data</p>
-          <p className="text-sm text-muted-foreground">Please check your connection and try again</p>
-        </div>
-      </div>
-    );
-  }
+      <Stack spacing={3}>
+        <Alert severity="info">
+          <AlertTitle>No marine data for {locationName}</AlertTitle>
+          This point is inland, or outside the marine model's coverage. The wind
+          and air readings below still apply.
+        </Alert>
 
-  // If marine data fails but weather data is available, show marine analysis with weather data
-  if ((marineError || !marineData) && weatherData) {
-    return (
-      <div className="space-y-6">
-        {/* Marine Analysis with Weather Data */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Waves className="w-5 h-5 text-cyan-600" />
-              Marine Conditions for {locationName}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="p-8 space-y-4 text-center">
-              <div className="text-6xl text-yellow-600">⚠️</div>
-              <p className="text-lg font-semibold">Limited Marine Data Available</p>
-              <p className="text-muted-foreground">
-                This location may be inland or have limited marine coverage.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Try one of these coastal locations for full marine data:
-              </p>
-              <div className="grid grid-cols-1 gap-2 mt-4 md:grid-cols-2">
-                {suggestedLocations.map((location) => (
-                  <Button
-                    key={location.name}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => switchToLocation(location.name, location.coords)}
-                  >
-                    📍 {location.name}
-                  </Button>
-                ))}
-              </div>
-              <div className="mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2"
-                  onClick={() => setShowMap(!showMap)}
-                >
-                  <Map className="w-4 h-4" />
-                  {showMap ? 'Hide Map' : 'Show Interactive Map'}
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Pick a location above, or choose any coastal point on the map
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Weather Conditions for Marine Activities */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Weather Conditions for Marine Activities</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="p-4 text-center border rounded-lg">
-                <Thermometer className="w-6 h-6 mx-auto mb-2 text-cyan-600" />
-                <p className="text-sm text-muted-foreground">Temperature</p>
-                <p className="text-xl font-semibold">
-                  {weatherData.current && units === 'metric'
-                    ? `${Math.round(weatherData.current.temperature_2m)}°C`
-                    : weatherData.current
-                      ? `${Math.round(weatherData.current.temperature_2m * 9 / 5 + 32)}°F`
-                      : 'N/A'
-                  }
-                </p>
-              </div>
-
-              <div className="p-4 text-center border rounded-lg">
-                <Wind className="w-6 h-6 mx-auto mb-2 text-cyan-600" />
-                <p className="text-sm text-muted-foreground">Wind Speed</p>
-                <p className="text-xl font-semibold">
-                  {weatherData.current && units === 'metric'
-                    ? `${Math.round(weatherData.current.wind_speed_10m)} km/h`
-                    : weatherData.current
-                      ? `${Math.round(weatherData.current.wind_speed_10m * 0.621371)} mph`
-                      : 'N/A'
-                  }
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {weatherData.current ? getDirectionText(weatherData.current.wind_direction_10m) : 'N/A'}
-                </p>
-              </div>
-
-              <div className="p-4 text-center border rounded-lg">
-                <Navigation className="w-6 h-6 mx-auto mb-2 text-cyan-600" />
-                <p className="text-sm text-muted-foreground">Humidity</p>
-                <p className="text-xl font-semibold">
-                  {weatherData.current ? `${weatherData.current.relative_humidity_2m}%` : 'N/A'}
-                </p>
-              </div>
-
-              <div className="p-4 text-center border rounded-lg">
-                <Waves className="w-6 h-6 mx-auto mb-2 text-cyan-600" />
-                <p className="text-sm text-muted-foreground">Precipitation</p>
-                <p className="text-xl font-semibold">
-                  {weatherData.current ? `${weatherData.current.precipitation || 0} mm` : 'N/A'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Marine Safety Recommendations */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Marine Activity Recommendations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {/*
-                This branch runs when the marine API has no coverage here, so
-                there is no sea state to advise on. It previously showed the
-                GENERAL persona's advice ("stay hydrated, use sun protection")
-                under a "Marine Activity Recommendations" heading — wrong
-                before the refactor, and now impossible: marine advice needs
-                marine data. The wind and air figures below still apply.
-              */}
-              <div className="grid grid-cols-1 gap-4 mt-4 md:grid-cols-2">
-                <div className="p-3 border rounded">
-                  <p className="font-medium">Wind Conditions</p>
-                  <p className="text-sm text-muted-foreground">
-                    {weatherData.current && weatherData.current.wind_speed_10m > 25
-                      ? "Strong winds - caution advised"
-                      : weatherData.current && weatherData.current.wind_speed_10m > 15
-                        ? "Moderate winds - suitable for experienced mariners"
-                        : weatherData.current
-                          ? "Light winds - good conditions"
-                          : "Wind data unavailable"
-                    }
-                  </p>
-                </div>
-
-                <div className="p-3 border rounded">
-                  <p className="font-medium">Visibility</p>
-                  <p className="text-sm text-muted-foreground">
-                    {weatherData.current ? (weatherData.current.is_day ? "Daylight conditions" : "Night conditions") : "Visibility data unavailable"}
-                    {weatherData.current && weatherData.current.cloud_cover && weatherData.current.cloud_cover > 80 && " - Overcast"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Interactive Map */}
-        {showMap && (
-          <WeatherMap
-            coordinates={coordinates}
-            locationName={locationName}
-            onLocationSelect={handleLocationSelect}
-            className="mb-6"
+          <CardHeader
+            title="Try a coastal location"
+            slotProps={{ title: { variant: "h6", component: "h2" } }}
           />
-        )}
-
-        {/* Suggestion to try coastal location */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="space-y-2 text-center">
-              <p className="text-sm font-medium">💡 Pro Tip</p>
-              <p className="text-xs text-muted-foreground">
-                For detailed marine conditions, try selecting a coastal location on the map
-              </p>
-            </div>
+          <CardContent>
+            <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+              {SUGGESTED_LOCATIONS.map((location) => (
+                <Button
+                  key={location.name}
+                  size="small"
+                  variant="outlined"
+                  startIcon={<PlaceIcon />}
+                  onClick={() => selectLocation(location.name, location.coords)}
+                >
+                  {location.name}
+                </Button>
+              ))}
+            </Stack>
+            <Typography
+              variant="body2"
+              sx={{ color: "text.secondary", mt: 2 }}
+            >
+              Or pick any coastal point on the map.
+            </Typography>
           </CardContent>
         </Card>
-      </div>
+
+        {mapToggle}
+        {map}
+
+        {weatherData.current && (
+          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 2 }}>
+            <StatTile
+              label="Air temperature"
+              value={
+                units === "metric"
+                  ? `${Math.round(weatherData.current.temperature_2m)}°C`
+                  : `${Math.round((weatherData.current.temperature_2m * 9) / 5 + 32)}°F`
+              }
+              detail="On shore"
+            />
+            <StatTile
+              label="Wind"
+              value={
+                units === "metric"
+                  ? `${Math.round(weatherData.current.wind_speed_10m)} km/h`
+                  : `${Math.round(weatherData.current.wind_speed_10m * 0.621371)} mph`
+              }
+              detail={directionText(weatherData.current.wind_direction_10m)}
+            />
+            <StatTile
+              label="Light"
+              value={weatherData.current.is_day ? "Daylight" : "Night"}
+              detail={
+                (weatherData.current.cloud_cover ?? 0) > 80
+                  ? "Overcast"
+                  : "Clear enough"
+              }
+            />
+          </Stack>
+        )}
+      </Stack>
     );
   }
 
-  // If we have marine data, process it
-  if (!marineData) {
-    return null; // This should never happen due to earlier checks, but TypeScript needs it
-  }
+  const hourly = marineData?.hourly;
+  // The API returns a series starting at midnight local time, so the current
+  // hour indexes into it directly.
+  const index = hourly
+    ? Math.min(new Date().getHours(), hourly.time.length - 1)
+    : 0;
 
-  const currentHour = new Date().getHours();
-  const currentIndex = Math.min(currentHour, marineData.hourly.time.length - 1);
-
-  const currentConditions = {
-    waveHeight: marineData.hourly.wave_height[currentIndex],
-    waveDirection: marineData.hourly.wave_direction[currentIndex],
-    wavePeriod: marineData.hourly.wave_period[currentIndex],
-    seaTemp: marineData.hourly.sea_surface_temperature[currentIndex],
-    currentVelocity: marineData.hourly.ocean_current_velocity[currentIndex],
-    currentDirection: marineData.hourly.ocean_current_direction[currentIndex],
-  };
-
-  const getSeaCondition = (waveHeight: number | null) => {
-    if (waveHeight == null) return { text: 'No Data', color: 'text-gray-500' };
-    if (waveHeight < 0.5) return { text: 'Calm', color: 'text-green-600' };
-    if (waveHeight < 1.0) return { text: 'Slight', color: 'text-yellow-600' };
-    if (waveHeight < 2.0) return { text: 'Moderate', color: 'text-orange-600' };
-    if (waveHeight < 4.0) return { text: 'Rough', color: 'text-red-600' };
-    return { text: 'Very Rough', color: 'text-red-800' };
-  };
-
-  const seaCondition = getSeaCondition(currentConditions.waveHeight);
+  const waveHeight = hourly?.wave_height[index] ?? null;
+  const sea = seaCondition(waveHeight);
 
   return (
-    <div className="space-y-6">
-      {/* Map Toggle Button */}
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          className={`flex items-center gap-2 ${getButtonClasses('secondary')}`}
-          onClick={() => setShowMap(!showMap)}
-        >
-          <Map className="w-4 h-4" />
-          {showMap ? 'Hide Map' : 'Show Map'}
-        </Button>
-      </div>
+    <QueryState
+      isLoading={marineLoading || weatherLoading}
+      error={marineError}
+      hasData={Boolean(hourly)}
+      loadingLabel="Loading sea conditions…"
+      errorTitle="Could not load sea conditions"
+    >
+      {() => hourly && (
+        <Stack spacing={3}>
+          {mapToggle}
+          {map}
 
-      {/* Interactive Map */}
-      {showMap && (
-        <WeatherMap
-          coordinates={coordinates}
-          locationName={locationName}
-          onLocationSelect={handleLocationSelect}
-          className="mb-6"
-        />
+          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 2 }}>
+            <StatTile
+              label="Wave height"
+              value={waveHeight != null ? `${waveHeight.toFixed(1)} m` : "N/A"}
+              detail={sea.text}
+              color={seaSeverityColor(sea.severity)}
+            />
+            <StatTile
+              label="Wave direction"
+              value={
+                hourly.wave_direction[index] != null
+                  ? directionText(hourly.wave_direction[index])
+                  : "N/A"
+              }
+              detail={
+                hourly.wave_direction[index] != null
+                  ? `${Math.round(hourly.wave_direction[index])}°`
+                  : "No data"
+              }
+            />
+            <StatTile
+              label="Sea temperature"
+              value={
+                hourly.sea_surface_temperature[index] != null
+                  ? units === "metric"
+                    ? `${Math.round(hourly.sea_surface_temperature[index])}°C`
+                    : `${Math.round((hourly.sea_surface_temperature[index] * 9) / 5 + 32)}°F`
+                  : "N/A"
+              }
+              detail="Surface"
+            />
+            <StatTile
+              label="Wave period"
+              value={
+                hourly.wave_period[index] != null
+                  ? `${hourly.wave_period[index].toFixed(1)} s`
+                  : "N/A"
+              }
+              detail="Between crests"
+            />
+          </Stack>
+
+          {advice && <AdviceCard advice={advice} title="Is it worth going out" />}
+
+          <Card>
+            <CardHeader
+              title="Current and swell"
+              slotProps={{ title: { variant: "h6", component: "h2" } }}
+            />
+            <CardContent>
+              <Stack direction="row" sx={{ flexWrap: "wrap", gap: 2 }}>
+                <Box sx={{ flex: "1 1 200px" }}>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    Ocean current
+                  </Typography>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {hourly.ocean_current_velocity[index] != null
+                      ? `${hourly.ocean_current_velocity[index].toFixed(1)} km/h ${
+                          hourly.ocean_current_direction[index] != null
+                            ? directionText(hourly.ocean_current_direction[index])
+                            : ""
+                        }`
+                      : "No data"}
+                  </Typography>
+                </Box>
+                <Box sx={{ flex: "1 1 200px" }}>
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    Swell height
+                  </Typography>
+                  <Typography sx={{ fontWeight: 600 }}>
+                    {hourly.swell_wave_height[index] != null
+                      ? `${hourly.swell_wave_height[index].toFixed(1)} m`
+                      : "No data"}
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Stack>
       )}
-
-      {/* Current Marine Conditions */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2 text-sm">
-            <Waves className="w-4 h-4 text-cyan-600" /> Wave Height
-          </div>
-          <p className="text-2xl font-bold">
-            {currentConditions.waveHeight != null ? `${currentConditions.waveHeight.toFixed(1)}m` : 'N/A'}
-          </p>
-          <p className={`text-sm ${seaCondition.color}`}>{seaCondition.text}</p>
-        </div>
-        <div className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2 text-sm">
-            <Navigation className="w-4 h-4 text-cyan-600" /> Wave Direction
-          </div>
-          <p className="text-2xl font-bold">
-            {currentConditions.waveDirection != null ? getDirectionText(currentConditions.waveDirection) : 'N/A'}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {currentConditions.waveDirection != null ? `${Math.round(currentConditions.waveDirection)}°` : 'N/A'}
-          </p>
-        </div>
-        <div className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2 text-sm">
-            <Thermometer className="w-4 h-4 text-cyan-600" /> Sea Temperature
-          </div>
-          <p className="text-2xl font-bold">
-            {currentConditions.seaTemp != null
-              ? units === 'metric'
-                ? `${Math.round(currentConditions.seaTemp)}°C`
-                : `${Math.round(currentConditions.seaTemp * 9 / 5 + 32)}°F`
-              : 'N/A'
-            }
-          </p>
-        </div>
-        <div className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2 text-sm">
-            <Wind className="w-4 h-4 text-cyan-600" /> Current
-          </div>
-          <p className="text-2xl font-bold">
-            {currentConditions.currentVelocity != null
-              ? units === 'metric'
-                ? `${currentConditions.currentVelocity.toFixed(1)} km/h`
-                : `${(currentConditions.currentVelocity * 0.621371).toFixed(1)} mph`
-              : 'N/A'
-            }
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {currentConditions.currentDirection != null ? getDirectionText(currentConditions.currentDirection) : 'N/A'}
-          </p>
-        </div>
-      </div>
-
-      {/* Marine Forecast */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Marine Forecast (24 Hours)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <div className="flex pb-4 space-x-4 min-w-max">
-              {marineData?.hourly.time.slice(0, 24).map((time, index) => {
-                const waveHeight = marineData.hourly.wave_height[index];
-                const seaTemp = marineData.hourly.sea_surface_temperature[index];
-                const hour = new Date(time).getHours();
-
-                return (
-                  <div key={time} className="text-center min-w-[100px] space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {hour === 0 ? '12 AM' : hour <= 12 ? `${hour} AM` : `${hour - 12} PM`}
-                    </p>
-
-                    <div className="space-y-1">
-                      <p className="font-semibold">
-                        {waveHeight != null ? `${waveHeight.toFixed(1)}m` : 'N/A'}
-                      </p>
-                      <div className={`w-2 h-8 mx-auto rounded border-2 ${waveHeight == null ? 'border-gray-300' :
-                        waveHeight < 0.5 ? 'border-green-500' :
-                          waveHeight < 1.0 ? 'border-yellow-500' :
-                            waveHeight < 2.0 ? 'border-orange-500' : 'border-red-500'
-                        }`} style={{ height: `${waveHeight != null ? Math.min(waveHeight * 20, 60) : 20}px` }} />
-                    </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      {seaTemp != null ? `${Math.round(seaTemp)}°` : 'N/A'}
-                    </p>
-                  </div>
-                );
-              }) || []}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Weather Conditions for Marine */}
-      {weatherData?.current && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Weather Conditions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Temperature</p>
-                <p className="text-xl font-semibold">
-                  {units === 'metric'
-                    ? `${Math.round(weatherData.current.temperature_2m)}°C`
-                    : `${Math.round(weatherData.current.temperature_2m * 9 / 5 + 32)}°F`
-                  }
-                </p>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Wind Speed</p>
-                <p className="text-xl font-semibold">
-                  {units === 'metric'
-                    ? `${Math.round(weatherData.current.wind_speed_10m)} km/h`
-                    : `${Math.round(weatherData.current.wind_speed_10m * 0.621371)} mph`
-                  }
-                </p>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Wind Direction</p>
-                <p className="text-xl font-semibold">
-                  {getDirectionText(weatherData.current.wind_direction_10m)}
-                </p>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Humidity</p>
-                <p className="text-xl font-semibold">{weatherData.current.relative_humidity_2m}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </QueryState>
   );
 }

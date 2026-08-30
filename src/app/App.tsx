@@ -1,5 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Provider } from 'react-redux';
+import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Container from '@mui/material/Container';
+import Divider from '@mui/material/Divider';
+import Stack from '@mui/material/Stack';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import PlaceIcon from '@mui/icons-material/Place';
+import ShieldIcon from '@mui/icons-material/Shield';
 import { store } from '@/store/store';
 import { ProfileSelector } from '@/app/components/ProfileSelector';
 import { GeneralDashboard } from '@/features/forecast/components/GeneralDashboard';
@@ -10,11 +22,8 @@ import { OfflineIndicator } from '@/features/pwa/components/OfflineIndicator';
 import { EmergencyInfo } from '@/features/location/components/EmergencyInfo';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setLocation, setLocationName } from '@/store/slices/userProfileSlice';
-import { Button } from '@/shared/ui/button';
-import { MapPin, Loader, Shield } from 'lucide-react';
 import { registerServiceWorker, setupInstallPrompt } from '@/features/pwa/lib/serviceWorker';
 import { getCurrentLocation, getLocationInfo, type LocationInfo } from '@/features/location/lib/geolocation';
-import { getThemeStyle, getButtonClasses } from '@/shared/theme/profileThemes';
 import type { Coordinates } from '@/shared/types/weather';
 
 // Medenrudnik, Burgas — the fallback when geolocation is denied or times out.
@@ -44,11 +53,11 @@ function WeatherApp() {
     setLocationError(null);
 
     try {
-      const locationInfo = await getCurrentLocation();
+      const info = await getCurrentLocation();
 
-      dispatch(setLocation(locationInfo.coordinates));
-      dispatch(setLocationName(locationInfo.displayName));
-      setLocationInfo(locationInfo);
+      dispatch(setLocation(info.coordinates));
+      dispatch(setLocationName(info.displayName));
+      setLocationInfo(info);
       setLocationError(null);
     } catch (error) {
       console.error('Geolocation error:', error);
@@ -86,13 +95,11 @@ function WeatherApp() {
     getLocationInfo(location).then(setLocationInfo).catch(console.error);
   }, [location, requestLocation]);
 
-  // Initialize service worker and PWA features
   useEffect(() => {
     const initializeServiceWorker = async () => {
       try {
         await registerServiceWorker();
         setupInstallPrompt();
-        console.log('Weather App: Service worker and PWA features initialized');
       } catch (error) {
         console.error('Weather App: Failed to initialize service worker:', error);
       }
@@ -120,92 +127,92 @@ function WeatherApp() {
   };
 
   return (
-    <div className={getThemeStyle(profile)}>
-      {/* Header */}
-      <header className={`border-b-2 border-gray-300 bg-white`}>
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">Weather Pro</h1>
-              <span className="text-sm text-gray-600">Advanced Weather Intelligence</span>
-            </div>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Container maxWidth="lg">
+          <Toolbar disableGutters sx={{ flexWrap: 'wrap', gap: 2, py: 1 }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', flexGrow: 1 }}>
+              <Typography variant="h6" component="h1" sx={{ fontWeight: 700 }}>
+                Weather Pro
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
+                Weather that tells you what to do
+              </Typography>
+            </Stack>
 
-            <div className="flex items-center gap-4">
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
               <OfflineIndicator />
-
               <ProfileSelector />
 
               <Button
-                variant="outline"
-                size="sm"
+                variant="outlined"
+                size="small"
                 onClick={requestLocation}
                 disabled={isLoadingLocation}
-                className={`flex items-center gap-2 ${getButtonClasses('secondary')}`}
+                startIcon={
+                  isLoadingLocation ? <CircularProgress size={16} /> : <MyLocationIcon />
+                }
               >
-                {isLoadingLocation ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  <MapPin className="h-4 w-4" />
-                )}
-                {isLoadingLocation ? 'Getting Location...' : 'Use My Location'}
+                {isLoadingLocation ? 'Locating…' : 'Use my location'}
               </Button>
 
               {locationInfo && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowEmergencyInfo(!showEmergencyInfo)}
-                  className={`flex items-center gap-2 ${getButtonClasses('secondary')}`}
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  startIcon={<ShieldIcon />}
+                  onClick={() => setShowEmergencyInfo((open) => !open)}
                 >
-                  <Shield className="h-4 w-4" />
                   Emergency
                 </Button>
               )}
-            </div>
-          </div>
+            </Stack>
+          </Toolbar>
 
-          {/* Location and Error Display */}
-          <div className="mt-2 flex items-center justify-center sm:justify-start gap-2">
-            <MapPin className="h-4 w-4 text-gray-600" />
-            <span className="text-sm text-gray-700">{currentLocationName}</span>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', pb: 1.5, flexWrap: 'wrap' }}
+          >
+            <PlaceIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+            <Typography variant="body2">{currentLocationName}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)}
+            </Typography>
             {locationError && (
-              <span className="text-sm text-red-600">({locationError})</span>
+              <Typography variant="caption" sx={{ color: 'error.main' }}>
+                ({locationError})
+              </Typography>
             )}
-            {locationInfo && (
-              <span className="text-xs text-gray-500 ml-2">
-                {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)}
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+          </Stack>
+        </Container>
+      </AppBar>
 
-      {/* Emergency Info */}
-      {showEmergencyInfo && locationInfo && (
-        <div className="container mx-auto px-4 py-4">
-          <EmergencyInfo
-            emergencyNumbers={locationInfo.emergencyNumbers}
-            profile={profile}
-            locationName={locationInfo.displayName}
-            countryCode={locationInfo.countryCode}
-            coordinates={currentCoords}
-          />
-        </div>
-      )}
+      <Container maxWidth="lg" component="main" sx={{ flexGrow: 1, py: 3 }}>
+        <Stack spacing={3}>
+          {showEmergencyInfo && locationInfo && (
+            <EmergencyInfo
+              emergencyNumbers={locationInfo.emergencyNumbers}
+              profile={profile}
+              locationName={locationInfo.displayName}
+              countryCode={locationInfo.countryCode}
+            />
+          )}
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        {renderDashboard()}
-      </main>
+          {renderDashboard()}
+        </Stack>
+      </Container>
 
-      {/* Footer */}
-      <footer className={`border-t-2 border-gray-300 bg-white mt-12`}>
-        <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-600">
-          <p>Weather data provided by Open-Meteo • Built with modern web technologies</p>
-          <p className="mt-1">Designed for General Public, Marine, Mountain, and Agricultural professionals</p>
-        </div>
-      </footer>
-    </div>
+      <Divider />
+      <Box component="footer" sx={{ py: 3 }}>
+        <Container maxWidth="lg">
+          <Typography variant="body2" align="center" sx={{ color: 'text.secondary' }}>
+            Weather data from Open-Meteo. Built for people going outside.
+          </Typography>
+        </Container>
+      </Box>
+    </Box>
   );
 }
 
