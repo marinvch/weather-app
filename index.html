@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weather Pro - Advanced Weather Intelligence</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Meta tags for PWA -->
+    <meta
+      name="description"
+      content="Multi-profile weather application with AI-powered intelligent alerts, historical data analysis, and offline support"
+    />
+    <meta name="theme-color" content="#0ea5e9" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Weather Pro" />
+
+    <!-- Apple touch icons -->
+    <link rel="apple-touch-icon" href="/weather-icon-152.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/weather-icon-72.png" />
+    <link rel="apple-touch-icon" sizes="96x96" href="/weather-icon-96.png" />
+    <link rel="apple-touch-icon" sizes="128x128" href="/weather-icon-128.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/weather-icon-144.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/weather-icon-152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/weather-icon-192.png" />
+
+    <!-- Microsoft tiles -->
+    <meta name="msapplication-TileColor" content="#0ea5e9" />
+    <meta name="msapplication-TileImage" content="/weather-icon-144.png" />
+
+    <!-- Preconnect to weather APIs for better performance -->
+    <link rel="preconnect" href="https://api.open-meteo.com" />
+    <link rel="preconnect" href="https://marine-api.open-meteo.com" />
+    <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

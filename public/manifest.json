@@ -1,0 +1,148 @@
+{
+  "name": "Weather Pro - Advanced Weather Intelligence",
+  "short_name": "Weather Pro",
+  "description": "Multi-profile weather application with AI-powered intelligent alerts, historical data analysis, and offline support",
+  "version": "1.0.0",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "categories": ["weather", "lifestyle", "productivity"],
+  "lang": "en",
+  "scope": "/",
+  "id": "weather-pro-app",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "72x72",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "96x96",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "128x128",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "144x144",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "152x152",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "384x384",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/weather-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "General Weather",
+      "short_name": "General",
+      "description": "View general weather forecast",
+      "url": "/?profile=general",
+      "icons": [
+        {
+          "src": "/icons/weather-icon.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Marine Weather",
+      "short_name": "Marine",
+      "description": "View marine weather conditions",
+      "url": "/?profile=marine",
+      "icons": [
+        {
+          "src": "/icons/weather-icon.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Mountain Weather",
+      "short_name": "Mountain",
+      "description": "View mountain weather conditions",
+      "url": "/?profile=mountain",
+      "icons": [
+        {
+          "src": "/icons/weather-icon.svg",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Agricultural Weather",
+      "short_name": "Agriculture",
+      "description": "View agricultural weather conditions",
+      "url": "/?profile=agriculture",
+      "icons": [
+        {
+          "src": "/icons/weather-icon.svg",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "features": [
+    "Cross Platform",
+    "Offline Support",
+    "AI Analysis",
+    "Historical Data",
+    "Weather Maps",
+    "Push Notifications",
+    "Multi-Profile Support"
+  ],
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
+}
