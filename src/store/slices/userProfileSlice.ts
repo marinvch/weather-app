@@ -1,5 +1,5 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { UserProfile, UserPreferences } from "../../types/weather";
+import type { UserProfile, UserPreferences } from '@/shared/types/weather';
 
 const initialState: UserPreferences = {
   profile: "general",

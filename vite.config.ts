@@ -2,12 +2,20 @@
 // `test` block below. Vitest 4 dropped the /// <reference types="vitest" />
 // form; using it here fails `tsc -b` with "'test' does not exist in type
 // UserConfigExport". It is a superset of Vite's own defineConfig.
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    // Mirrors the "@/*" paths entry in tsconfig.app.json. Both must agree, or
+    // the type checker and the bundler disagree about what an import means.
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   server: {
     port: 5173,
     host: true,
@@ -36,5 +44,11 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // Each worker builds its own jsdom and loads MUI + Emotion into it, which
+    // is heavy. An unbounded pool has been observed exhausting the heap
+    // ("Zone Allocation failed") when the machine is already busy. Capping
+    // workers keeps peak memory bounded; the suite is small enough that the
+    // lost parallelism costs a second or two.
+    maxWorkers: 2,
   },
 });

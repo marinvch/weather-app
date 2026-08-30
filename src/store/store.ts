@@ -2,15 +2,15 @@ import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 
 // API imports
-import { weatherApi } from "./api/weatherApi";
-import { marineApi } from "./api/marineApi";
-import { historicalApi } from "./api/historicalApi";
-import { agriculturalApi } from "./api/agriculturalApi";
+import { weatherApi } from "@/shared/api/weatherApi";
+import { marineApi } from "@/shared/api/marineApi";
+import { historicalApi } from "@/shared/api/historicalApi";
+import { agriculturalApi } from "@/shared/api/agriculturalApi";
 
 // Slice imports
-import userProfileReducer from "./slices/userProfileSlice";
-import preferencesReducer from "./slices/preferencesSlice";
-import alertsReducer from "./slices/alertsSlice";
+import userProfileReducer from "@/store/slices/userProfileSlice";
+import preferencesReducer from "@/store/slices/preferencesSlice";
+import alertsReducer from "@/features/alerts/store/alertsSlice";
 
 export const store = configureStore({
   reducer: {

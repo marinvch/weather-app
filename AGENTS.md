@@ -16,22 +16,26 @@ in MUI. See *MUI / Tailwind interop* below before changing anything about how ei
 
 ## Layout
 
+Feature-based, following [bulletproof-react](https://github.com/alan2207/bulletproof-react).
+Dependencies flow **one way: `shared → features → app`**, and features never import each other.
+
 | Path | Holds |
 |---|---|
-| `src/components/Dashboard/` | one dashboard per user profile; the switch lives in `src/App.tsx` |
-| `src/components/ui/` | shadcn primitives (badge, button, card, select) — regenerate, don't hand-edit |
-| `src/store/api/` | RTK Query APIs, one per profile, plus the AI-analysis helpers |
-| `src/store/slices/` | feature state: `userProfile`, `preferences`, `alerts` |
-| `src/types/weather.ts` | every weather/profile type in the app — single source |
-| `src/utils/` | geolocation, service-worker registration, per-profile theming |
-| `src/theme/` | the MUI theme and its provider — `AppTheme` wraps the app in `main.tsx` |
+| `src/app/` | composition root — `App.tsx`, the profile switch, `ProfileSelector` |
+| `src/features/` | one folder per persona and capability; see `src/features/AGENTS.md` |
+| `src/shared/` | theme, UI, API transport, types — the foundation; see `src/shared/AGENTS.md` |
+| `src/store/` | `configureStore` + typed hooks; composes feature reducers |
 | `public/` | hand-written `sw.js`, PWA `manifest.json`, icons |
+
+Imports use the **`@/` alias** for `src/` (`tsconfig.app.json` paths + `vite.config.ts` resolve —
+both must agree). Use it for anything crossing a directory: the ESLint boundary rules match on the
+alias, so a relative `../../features/marine` slips past them.
 
 ## MUI / Tailwind interop
 
 Three settings hold this together. They are a set — changing one alone breaks the UI:
 
-- **`StyledEngineProvider injectFirst`** (`src/theme/AppTheme.tsx`). MUI component styles and
+- **`StyledEngineProvider injectFirst`** (`@/shared/theme/AppTheme`). MUI component styles and
   Tailwind utilities are both single-class selectors, so source order decides. This is what makes a
   `className` on a MUI component actually win.
 - **No `<CssBaseline />`, and Tailwind preflight stays on.** MUI's docs say to swap one for the
@@ -71,14 +75,14 @@ three areas still hold — it is not yet evidence the app works.
 
 ## Invariants
 
-- Every API registered in `src/store/store.ts` needs **both** its reducer (`api.reducerPath`) and
+- Every API registered in `@/store/store` needs **both** its reducer (`api.reducerPath`) and
   its `api.middleware` in the `.concat()` chain. Miss the middleware and RTK Query silently never
   fetches.
 - PostCSS config must stay `postcss.config.cjs`. `package.json` sets `"type": "module"`, so a
   `.js` config using `module.exports` fails to load.
-- All Redux access goes through `useAppSelector` / `useAppDispatch` from `src/store/hooks.ts`,
+- All Redux access goes through `useAppSelector` / `useAppDispatch` from `@/store/hooks`,
   never the untyped react-redux hooks.
-- Weather and profile types are imported from `src/types/weather.ts`. Do not redeclare shapes
+- Weather and profile types are imported from `@/shared/types/weather`. Do not redeclare shapes
   inline in a component.
 - Dashboard components take both `coordinates` **and** `locationName` as props; `locationName` is
   display-only but every dashboard header expects it.
@@ -90,10 +94,10 @@ three areas still hold — it is not yet evidence the app works.
   precache does not.
 - `.github/copilot-instructions.md` is an older hand-written brief. It is mostly accurate but says
   geolocation falls back to **London**; the code falls back to Medenrudnik, Burgas, Bulgaria
-  (`src/App.tsx`). Trust the code.
+  (`src/app/App.tsx`). Trust the code.
 - Marine, historical and forecast data come from **three different Open-Meteo hosts**
   (`api.`, `marine-api.`, `archive-api.`) — a copied `baseUrl` is the usual cause of a 404.
-- The "AI analysis" is deterministic rule-based scoring in `src/store/api/weatherApi.ts` and its
+- The "AI analysis" is deterministic rule-based scoring in `@/shared/api/weatherApi` and its
   siblings. There is no model call; confidence scores are hand-assigned constants.
 
 ## Where to look
@@ -102,15 +106,15 @@ Read the root, match your work to a row, then open **one** leaf:
 
 | Working in | Read first |
 |---|---|
-| `src/components/` | [`src/components/AGENTS.md`](src/components/AGENTS.md) |
-| `src/store/` | [`src/store/AGENTS.md`](src/store/AGENTS.md) |
+| `src/features/` | [`src/features/AGENTS.md`](src/features/AGENTS.md) |
+| `src/shared/` | [`src/shared/AGENTS.md`](src/shared/AGENTS.md) |
 
 ## Conventions
 
-- Components are named exports in `PascalCase/PascalCase.tsx` folders; slices are default exports.
-- Tailwind classes are merged with `cn()` from `src/lib/utils.ts` — never concatenate class strings
+- Components are named exports; slices are default exports. New UI is MUI — see the interop section before touching styling config.
+- Tailwind classes are merged with `cn()` from `@/shared/lib/utils` — never concatenate class strings
   by hand, or variant overrides stop winning.
-- Profile-conditional styling goes through `src/utils/themes.ts` (`getThemeStyle`,
+- Profile-conditional styling goes through `@/shared/theme/profileThemes` (`getThemeStyle`,
   `getButtonClasses`), not inline per-profile ternaries in components.
 
 ## Context files
