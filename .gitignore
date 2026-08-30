@@ -27,3 +27,8 @@ dist-ssr
 .cortex/index/
 .cortex/findings/
 .cortex/view/
+
+# Local env — never commit
+.env
+.env.local
+.env.*.local
