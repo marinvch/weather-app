@@ -1,3 +1,4 @@
+import { formatCoordinates, normalizeCoordinates } from '@/shared/lib/geo';
 import type { Coordinates } from '@/shared/types/weather';
 
 export interface LocationInfo {
@@ -129,10 +130,13 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const coords = {
+        // The Geolocation API is WGS 84 by specification, same as everything
+        // downstream — see @/shared/lib/geo. Normalizing is a no-op here and
+        // is kept so the boundary is explicit.
+        const coords = normalizeCoordinates({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        };
+        });
 
         try {
           const locationInfo = await getLocationInfo(coords);
@@ -144,9 +148,7 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
             city: "Unknown",
             country: "Unknown",
             countryCode: "DEFAULT",
-            displayName: `${coords.latitude.toFixed(
-              4
-            )}, ${coords.longitude.toFixed(4)}`,
+            displayName: formatCoordinates(coords),
             emergencyNumbers: EMERGENCY_NUMBERS.DEFAULT,
           });
         }
@@ -164,8 +166,12 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
 }
 
 export async function getLocationInfo(
-  coordinates: Coordinates
+  input: Coordinates
 ): Promise<LocationInfo> {
+  // Nominatim's `lat`/`lon` are WGS 84 and it rejects out-of-range values, so
+  // a point dragged past the antimeridian on the map is wrapped here.
+  const coordinates = normalizeCoordinates(input);
+
   try {
     // Use Nominatim (OpenStreetMap) free reverse geocoding service
     // No custom headers, deliberately. This used to send a User-Agent, which
@@ -208,11 +214,7 @@ export async function getLocationInfo(
         ? `${city}, ${region}, ${country}`
         : `${city}, ${country}`;
     } else {
-      displayName =
-        data.display_name ||
-        `${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(
-          4
-        )}`;
+      displayName = data.display_name || formatCoordinates(coordinates);
     }
 
     // Get emergency numbers for the country
@@ -237,9 +239,7 @@ export async function getLocationInfo(
       city: "Unknown",
       country: "Unknown",
       countryCode: "DEFAULT",
-      displayName: `${coordinates.latitude.toFixed(
-        4
-      )}, ${coordinates.longitude.toFixed(4)}`,
+      displayName: formatCoordinates(coordinates),
       emergencyNumbers: EMERGENCY_NUMBERS.DEFAULT,
     };
   }

@@ -94,6 +94,11 @@ three areas still hold — it is not yet evidence the app works.
   never the untyped react-redux hooks.
 - Weather and profile types are imported from `@/shared/types/weather`. Do not redeclare shapes
   inline in a component.
+- **WGS 84 decimal degrees (EPSG:4326) is the only coordinate system, everywhere**, ordered
+  `latitude, longitude`. Every source already speaks it, so nothing in this app converts a
+  coordinate — a function that does is a bug. `@/shared/lib/geo` owns the constant, the range
+  checks, `normalizeCoordinates` and `formatCoordinates`; boundaries that admit a coordinate from
+  outside normalize there. See [ADR 0001](docs/adr/0001-wgs84-is-the-only-coordinate-system.md).
 - Dashboard components take both `coordinates` **and** `locationName` as props; `locationName` is
   display-only but every dashboard header expects it.
 

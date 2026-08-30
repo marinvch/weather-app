@@ -8,9 +8,26 @@ If something here needs to know about a feature, it does not belong here.
 | Path | Holds |
 |---|---|
 | `api/` | one RTK Query base API per Open-Meteo host — transport only |
+| `lib/` | `geo.ts` — the WGS 84 contract every coordinate in the app obeys |
 | `theme/` | the MUI theme (`theme.ts`) and the provider (`AppTheme.tsx`) |
 | `ui/` | presentational components used by more than one feature |
 | `types/` | `weather.ts` — every API response and domain type in the app |
+
+## `lib/geo.ts`
+
+**WGS 84 decimal degrees (EPSG:4326) is the app's only coordinate system**, ordered
+`latitude, longitude`. Every source speaks it already — Geolocation API, all three Open-Meteo
+hosts, Nominatim, Leaflet's `LatLng` — so nothing here converts, and a conversion function would
+be a bug. Leaflet's Web Mercator tiles are a rendering detail inside Leaflet; it never reaches us.
+
+Use `formatCoordinates` for anything shown to a person and `coordinatesKey` for any cache key or
+effect guard — the key rounds to `WGS84.precision` on purpose, because unrounded GPS drift missed
+on every reading and drove the reverse-geocode loop into Nominatim's rate limit.
+
+`normalizeCoordinates` runs at each boundary that admits a coordinate from outside. It clamps
+latitude and wraps longitude, and returns in-range values untouched — the wrapping arithmetic
+costs a few ulps, enough to break the very keys it feeds. See
+[ADR 0001](../../docs/adr/0001-wgs84-is-the-only-coordinate-system.md).
 
 ## API layer
 

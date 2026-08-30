@@ -23,6 +23,7 @@ import { EmergencyInfo } from '@/features/location/components/EmergencyInfo';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setLocation, setLocationName } from '@/store/slices/userProfileSlice';
 import { registerServiceWorker, setupInstallPrompt } from '@/features/pwa/lib/serviceWorker';
+import { coordinatesKey, formatCoordinates } from '@/shared/lib/geo';
 import { getCurrentLocation, getLocationInfo, type LocationInfo } from '@/features/location/lib/geolocation';
 import type { Coordinates } from '@/shared/types/weather';
 
@@ -88,7 +89,7 @@ function WeatherApp() {
     // every render and re-entered requestLocation each time: an unbounded loop
     // against the browser's geolocation and Nominatim, whose usage policy
     // forbids exactly that.
-    const key = `${location.latitude},${location.longitude}`;
+    const key = coordinatesKey(location);
     if (geocodedFor.current === key) return;
     geocodedFor.current = key;
 
@@ -178,7 +179,7 @@ function WeatherApp() {
             <PlaceIcon fontSize="small" sx={{ color: 'text.secondary' }} />
             <Typography variant="body2">{currentLocationName}</Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {currentCoords.latitude.toFixed(4)}, {currentCoords.longitude.toFixed(4)}
+              {formatCoordinates(currentCoords)}
             </Typography>
             {locationError && (
               <Typography variant="caption" sx={{ color: 'error.main' }}>

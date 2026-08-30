@@ -1,4 +1,13 @@
 // Weather data types
+
+/**
+ * A point on Earth, in **WGS 84 decimal degrees** (EPSG:4326) — the app's one
+ * coordinate reference system, everywhere, with no conversions.
+ *
+ * Latitude ∈ [-90, 90], longitude ∈ [-180, 180], always in that axis order.
+ * See `@/shared/lib/geo` for the constant, the validators and the formatter;
+ * anything that builds a pair from outside the app normalizes it there first.
+ */
 export interface Coordinates {
   latitude: number;
   longitude: number;

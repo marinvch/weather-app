@@ -10,6 +10,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
+import { formatCoordinates, normalizeCoordinates } from '@/shared/lib/geo';
 import type { Coordinates } from '@/shared/types/weather';
 
 // Fix for default markers in Leaflet with Webpack
@@ -91,17 +92,23 @@ export function WeatherMap({ coordinates, locationName, onLocationSelect, classN
     // Add click handler for location selection
     if (onLocationSelect) {
       map.on('click', async (e) => {
-        const { lat, lng } = e.latlng;
+        // Leaflet's LatLng is WGS 84, same as everything downstream — but a map
+        // dragged past the antimeridian reports longitudes outside ±180, which
+        // Nominatim and Open-Meteo both reject. Wrap at the boundary.
+        const picked = normalizeCoordinates({
+          latitude: e.latlng.lat,
+          longitude: e.latlng.lng,
+        });
+        const { latitude: lat, longitude: lng } = picked;
 
         try {
-          // Enhanced reverse geocoding with better zoom level
+          // Enhanced reverse geocoding with better zoom level.
+          // No custom headers, deliberately — see features/location/lib/
+          // geolocation.ts. A `User-Agent` here made the request non-simple,
+          // triggering a CORS preflight Nominatim rejects, so every map click
+          // fell through to the raw-coordinate fallback below.
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1&accept-language=en`,
-            {
-              headers: {
-                'User-Agent': 'WeatherApp/1.0'
-              }
-            }
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1&accept-language=en`
           );
 
           if (response.ok) {
@@ -117,16 +124,16 @@ export function WeatherMap({ coordinates, locationName, onLocationSelect, classN
             if (city && country) {
               locationName = region ? `${city}, ${region}, ${country}` : `${city}, ${country}`;
             } else {
-              locationName = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+              locationName = data.display_name || formatCoordinates(picked);
             }
 
-            onLocationSelect({ latitude: lat, longitude: lng }, locationName);
+            onLocationSelect(picked, locationName);
           } else {
-            onLocationSelect({ latitude: lat, longitude: lng }, `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+            onLocationSelect(picked, formatCoordinates(picked));
           }
         } catch (error) {
           console.error('Error with reverse geocoding:', error);
-          onLocationSelect({ latitude: lat, longitude: lng }, `${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          onLocationSelect(picked, formatCoordinates(picked));
         }
       });
     }
@@ -157,7 +164,7 @@ export function WeatherMap({ coordinates, locationName, onLocationSelect, classN
     // Add new marker
     const marker = L.marker(newLatLng)
       .addTo(map)
-      .bindPopup(`<b>${locationName}</b><br/>Lat: ${coordinates.latitude.toFixed(4)}<br/>Lng: ${coordinates.longitude.toFixed(4)}`)
+      .bindPopup(`<b>${locationName}</b><br/>${formatCoordinates(coordinates)}`)
       .openPopup();
 
     markerRef.current = marker;
@@ -296,7 +303,7 @@ export function WeatherMap({ coordinates, locationName, onLocationSelect, classN
                 Coordinates
               </Typography>
               <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                {coordinates.latitude.toFixed(6)}, {coordinates.longitude.toFixed(6)}
+                {formatCoordinates(coordinates)}
               </Typography>
             </Box>
           </Stack>

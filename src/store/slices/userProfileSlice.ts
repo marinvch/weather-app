@@ -1,5 +1,10 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { UserProfile, UserPreferences } from '@/shared/types/weather';
+import { normalizeCoordinates } from '@/shared/lib/geo';
+import type {
+  Coordinates,
+  UserProfile,
+  UserPreferences,
+} from '@/shared/types/weather';
 
 const initialState: UserPreferences = {
   profile: "general",
@@ -26,11 +31,16 @@ export const userProfileSlice = createSlice({
     setTimezone: (state, action: PayloadAction<string>) => {
       state.timezone = action.payload;
     },
-    setLocation: (
-      state,
-      action: PayloadAction<{ latitude: number; longitude: number } | null>
-    ) => {
-      state.location = action.payload;
+    /**
+     * The store holds WGS 84 decimal degrees and nothing else — see
+     * `@/shared/lib/geo`. Normalizing here means every reader downstream (three
+     * Open-Meteo hosts, Nominatim, Leaflet) gets a point already in range,
+     * rather than each of them having to defend against the antimeridian.
+     */
+    setLocation: (state, action: PayloadAction<Coordinates | null>) => {
+      state.location = action.payload
+        ? normalizeCoordinates(action.payload)
+        : null;
     },
     setLocationName: (state, action: PayloadAction<string>) => {
       state.locationName = action.payload;
