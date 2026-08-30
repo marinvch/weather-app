@@ -20,12 +20,14 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
   const dispatch = useAppDispatch();
   const [showMap, setShowMap] = useState(false);
 
-  // Coastal test locations with good marine data
-  const testLocations = [
-    { name: "Santander, Spain", coords: { latitude: 43.7696, longitude: -11.4550 } },
+  // Offered when the selected location has no marine coverage — an inland user
+  // needs somewhere to go, not just an error. Every coordinate here must sit on
+  // open water or Open-Meteo's marine API returns an empty series.
+  const suggestedLocations = [
+    { name: "Santander, Spain", coords: { latitude: 43.4800, longitude: -3.8000 } },
     { name: "Baltic Sea, Germany", coords: { latitude: 54.5445, longitude: 10.2275 } },
     { name: "Gibraltar, Mediterranean", coords: { latitude: 36.1408, longitude: -5.3536 } },
-    { name: "Miami Beach, FL", coords: { latitude: 25.7617, longitude: -80.1918 } }
+    { name: "Miami Beach, FL", coords: { latitude: 25.7907, longitude: -80.1200 } }
   ];
 
   const switchToLocation = (name: string, coords: Coordinates) => {
@@ -49,14 +51,6 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
     isLoading: marineLoading,
     error: marineError,
   } = useGetMarineDataQuery(coordinates);
-
-  // Debug logging
-  console.log('Marine API Debug:', {
-    coordinates,
-    marineData,
-    marineError,
-    marineLoading
-  });
 
   const {
     data: weatherData,
@@ -89,7 +83,6 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
 
   // If marine data fails but weather data is available, show marine analysis with weather data
   if ((marineError || !marineData) && weatherData) {
-    console.log('Marine data unavailable, showing fallback:', marineError);
     return (
       <div className="space-y-6">
         {/* Marine Analysis with Weather Data */}
@@ -111,7 +104,7 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
                 Try one of these coastal locations for full marine data:
               </p>
               <div className="grid grid-cols-1 gap-2 mt-4 md:grid-cols-2">
-                {testLocations.map((location) => (
+                {suggestedLocations.map((location) => (
                   <Button
                     key={location.name}
                     variant="outline"
@@ -135,7 +128,7 @@ export function MarineDashboard({ coordinates, locationName }: MarineDashboardPr
                 </Button>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                Click locations above or use the map to test marine conditions at coastal areas
+                Pick a location above, or choose any coastal point on the map
               </p>
             </div>
           </CardContent>

@@ -59,11 +59,6 @@ three areas still hold — it is not yet evidence the app works.
 
 ## Gotchas
 
-- `postcss.config.js` exists and is **empty (0 bytes)** — a leftover beside the real `.cjs`.
-  Deleting it is safe, but it is currently untouched.
-- Three abandoned variants are unreferenced by anything: `AIAnalysisComponent-fixed.tsx`,
-  `weatherApi-clean.ts`, `GeneralDashboard-enhanced.tsx`. Check before reusing — they are not the
-  live versions.
 - `public/sw.js` pre-caches `/static/js/bundle.js` and `/static/css/main.css`, which are
   Create-React-App paths that do not exist in a Vite build. The API caching works; the app-shell
   precache does not.
