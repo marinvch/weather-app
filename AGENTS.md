@@ -29,7 +29,7 @@ public Open-Meteo endpoints.
 npm install
 npm run dev      # Vite dev server, http://localhost:5173
 npm run build    # tsc -b && vite build
-npm run lint     # eslint .
+npm run lint     # eslint . — exits 1 on two known baseline errors, see /type-check
 ```
 
 No credentials needed. Open-Meteo and Nominatim are keyless; `.env` exists but is **empty**, so
