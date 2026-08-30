@@ -6,7 +6,7 @@ One of the four audiences the app serves — `general`, `marine`, `mountain`, `a
 Profile is not a user account: it is a *lens*. It selects which API is queried, which dashboard
 renders, which theme applies, and which analysis rules run. Held in
 `userProfile.profile` (`src/store/slices/userProfileSlice.ts`), typed as `UserProfile` in
-`src/types/weather.ts`.
+`@/shared/types/weather`.
 
 _Avoid_: "user", "role", "mode" — all three imply permissions or accounts, and there are none.
 
@@ -38,7 +38,7 @@ _Avoid_: using "warning" for all three.
 
 Always a `Coordinates` pair (`latitude`/`longitude`) — the canonical form everything downstream
 consumes. The human-readable string is a separate value, `locationName`, resolved from Nominatim
-by `src/utils/geolocation.ts`. They travel together but are never the same field.
+by `@/features/location/lib/geolocation`. They travel together but are never the same field.
 
 _Avoid_: passing a place name where a Location is expected; no API here geocodes for you.
 

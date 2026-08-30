@@ -1,51 +1,40 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { setupListeners } from "@reduxjs/toolkit/query";
 
-// API imports
-import { weatherApi } from "./api/weatherApi";
-import { marineApi } from "./api/marineApi";
-import { historicalApi } from "./api/historicalApi";
-import { agriculturalApi } from "./api/agriculturalApi";
+import { openMeteoApi } from "@/shared/api/openMeteoApi";
+import { marineBaseApi } from "@/shared/api/marineBaseApi";
+import { archiveApi } from "@/shared/api/archiveApi";
 
-// Slice imports
-import userProfileReducer from "./slices/userProfileSlice";
-import preferencesReducer from "./slices/preferencesSlice";
-import alertsReducer from "./slices/alertsSlice";
+import userProfileReducer from "@/store/slices/userProfileSlice";
+import preferencesReducer from "@/store/slices/preferencesSlice";
+import alertsReducer from "@/features/alerts/store/alertsSlice";
 
+/**
+ * One API per Open-Meteo host, not one per persona. Features add their own
+ * endpoints with `injectEndpoints`, so adding a feature never means editing
+ * this file — which is what keeps features deletable.
+ *
+ * Each API still needs BOTH its reducer and its middleware. Omitting the
+ * middleware raises no error; the queries just never fire.
+ */
 export const store = configureStore({
   reducer: {
-    // API reducers
-    [weatherApi.reducerPath]: weatherApi.reducer,
-    [marineApi.reducerPath]: marineApi.reducer,
-    [historicalApi.reducerPath]: historicalApi.reducer,
-    [agriculturalApi.reducerPath]: agriculturalApi.reducer,
+    [openMeteoApi.reducerPath]: openMeteoApi.reducer,
+    [marineBaseApi.reducerPath]: marineBaseApi.reducer,
+    [archiveApi.reducerPath]: archiveApi.reducer,
 
-    // Feature reducers
     userProfile: userProfileReducer,
     preferences: preferencesReducer,
     alerts: alertsReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware({
-      serializableCheck: {
-        ignoredActions: [
-          // Ignore these action types
-          "persist/FLUSH",
-          "persist/REHYDRATE",
-          "persist/PAUSE",
-          "persist/PERSIST",
-          "persist/PURGE",
-          "persist/REGISTER",
-        ],
-      },
-    })
-      .concat(weatherApi.middleware)
-      .concat(marineApi.middleware)
-      .concat(historicalApi.middleware)
-      .concat(agriculturalApi.middleware),
+    getDefaultMiddleware()
+      .concat(openMeteoApi.middleware)
+      .concat(marineBaseApi.middleware)
+      .concat(archiveApi.middleware),
 });
 
-// Setup listeners for refetchOnFocus/refetchOnReconnect behavior
+// Enables refetchOnFocus / refetchOnReconnect.
 setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
