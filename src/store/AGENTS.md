@@ -43,7 +43,8 @@ This is the single most common failure in this directory.
 
 ## Gotchas
 
-- `api/weatherApi-clean.ts` is an abandoned variant, imported by nothing. `weatherApi.ts` is live.
+- `generateGeneralAnalysis` and `generateMountainAnalysis` are exported from `weatherApi.ts` so
+  they can be tested directly — see `weatherApi.test.ts`. Keep them exported and keep them pure.
 - Cache lifetimes are RTK Query defaults unless a specific endpoint overrides `keepUnusedDataFor`.
   The 5-minute figure quoted in older docs is the **service worker's** cache
   (`public/sw.js`), a separate layer.

@@ -30,13 +30,18 @@ npm install
 npm run dev      # Vite dev server, http://localhost:5173
 npm run build    # tsc -b && vite build
 npm run lint     # eslint . — exits 1 on two known baseline errors, see /type-check
+npm test          # vitest, watch mode
+npm run test:run  # vitest run, single pass — use this in scripts and CI
+npm run typecheck # tsc -b --force
 ```
 
-No credentials needed. Open-Meteo and Nominatim are keyless; `.env` exists but is **empty**, so
-nothing reads it — do not invent `VITE_*` variables without adding them there first.
+No credentials needed. Open-Meteo and Nominatim are keyless. `.env` is untracked and unused — do
+not invent `VITE_*` variables without adding them there first.
 
-There is **no test command and no test framework installed.** Every change here is currently
-unverified — say so rather than claiming a change is safe.
+Tests run on **Vitest + jsdom + Testing Library**. Coverage is partial and deliberate: the pure
+logic is covered (emergency-number lookup and reverse-geocode fallbacks, the two analysis scorers,
+WeatherCard's unit conversions), the dashboards and the store are not. A green suite means those
+three areas still hold — it is not yet evidence the app works.
 
 ## Invariants
 
@@ -54,11 +59,6 @@ unverified — say so rather than claiming a change is safe.
 
 ## Gotchas
 
-- `postcss.config.js` exists and is **empty (0 bytes)** — a leftover beside the real `.cjs`.
-  Deleting it is safe, but it is currently untouched.
-- Three abandoned variants are unreferenced by anything: `AIAnalysisComponent-fixed.tsx`,
-  `weatherApi-clean.ts`, `GeneralDashboard-enhanced.tsx`. Check before reusing — they are not the
-  live versions.
 - `public/sw.js` pre-caches `/static/js/bundle.js` and `/static/css/main.css`, which are
   Create-React-App paths that do not exist in a Vite build. The API caching works; the app-shell
   precache does not.

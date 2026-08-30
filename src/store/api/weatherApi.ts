@@ -8,7 +8,7 @@ import type {
 } from "../../types/weather";
 
 // AI Analysis Functions
-const generateGeneralAnalysis = (weather: WeatherResponse): AIAnalysis => {
+export const generateGeneralAnalysis = (weather: WeatherResponse): AIAnalysis => {
   if (!weather.current) {
     return {
       recommendation: "Weather data unavailable",
@@ -65,7 +65,7 @@ const generateGeneralAnalysis = (weather: WeatherResponse): AIAnalysis => {
   };
 };
 
-const generateMountainAnalysis = (
+export const generateMountainAnalysis = (
   weather: WeatherResponse
 ): MountainAnalysis => {
   if (!weather.current) {

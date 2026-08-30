@@ -21,9 +21,10 @@ introduce Jest — it needs its own ESM and JSX pipeline against `"type": "modul
    npm install -D vitest @vitest/ui jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event
    ```
 
-2. Add the `test` block to `vite.config.ts` (it is a `defineConfig` from `vite`, so add
-   `/// <reference types="vitest" />` at the top of the file), with `environment: 'jsdom'`,
-   `globals: true`, and a setup file importing `@testing-library/jest-dom`.
+2. Add the `test` block to `vite.config.ts`. Import `defineConfig` from **`vitest/config`**, not
+   from `vite` — Vitest 4 dropped the `/// <reference types="vitest" />` form, and using it fails
+   `tsc -b` with *"'test' does not exist in type UserConfigExport"*. Use `environment: 'jsdom'`,
+   `globals: true`, and `setupFiles: ['./src/test/setup.ts']`.
 
 3. Add scripts to `package.json`: `"test": "vitest"` and `"test:run": "vitest run"`.
 

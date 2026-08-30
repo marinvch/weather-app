@@ -47,9 +47,14 @@ component **and** a new branch there.
 
 ## Gotchas
 
-- `AIAnalysis/AIAnalysisComponent-fixed.tsx` and `Dashboard/GeneralDashboard-enhanced.tsx` are
-  unreferenced variants. The live files are the un-suffixed ones.
-- `WeatherMap` uses react-leaflet; Leaflet's CSS and marker icons need explicit imports, and the
-  map must be remounted (not just re-rendered) if the container size changes.
-- With no test suite, verify UI changes by running `npm run dev` and loading the page. A build
-  passing is not evidence the dashboard renders.
+- `WeatherMap` drives Leaflet imperatively through refs, not via react-leaflet's components,
+  despite react-leaflet being a dependency. Marker icons are patched to CDN URLs because the
+  bundled asset paths break — so markers need the network even when the rest of the app is offline.
+- `MarineDashboard` renders a suggested-locations empty state when the marine API has no coverage
+  for the current point. Those coordinates must sit on open water or the suggestion leads to the
+  same empty result it was meant to escape.
+- `WeatherCard` is the only component that converts units. Everything else renders raw metric
+  regardless of `userProfile.units`.
+- Only `WeatherCard` has tests (`WeatherCard.test.tsx`). The dashboards have none — verify changes
+  to them by running `npm run dev` and loading the page. A passing build is not evidence a
+  dashboard renders.
