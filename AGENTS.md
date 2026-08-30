@@ -30,13 +30,18 @@ npm install
 npm run dev      # Vite dev server, http://localhost:5173
 npm run build    # tsc -b && vite build
 npm run lint     # eslint . — exits 1 on two known baseline errors, see /type-check
+npm test          # vitest, watch mode
+npm run test:run  # vitest run, single pass — use this in scripts and CI
+npm run typecheck # tsc -b --force
 ```
 
-No credentials needed. Open-Meteo and Nominatim are keyless; `.env` exists but is **empty**, so
-nothing reads it — do not invent `VITE_*` variables without adding them there first.
+No credentials needed. Open-Meteo and Nominatim are keyless. `.env` is untracked and unused — do
+not invent `VITE_*` variables without adding them there first.
 
-There is **no test command and no test framework installed.** Every change here is currently
-unverified — say so rather than claiming a change is safe.
+Tests run on **Vitest + jsdom + Testing Library**. Coverage is partial and deliberate: the pure
+logic is covered (emergency-number lookup and reverse-geocode fallbacks, the two analysis scorers,
+WeatherCard's unit conversions), the dashboards and the store are not. A green suite means those
+three areas still hold — it is not yet evidence the app works.
 
 ## Invariants
 
