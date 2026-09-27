@@ -46,6 +46,11 @@ owned by whoever needs them.
 
 **Base URLs differ per host.** Copying one into another endpoint gives a 404, not a type error.
 
+Every base API is built with `createBaseQuery(baseUrl)` from `baseQuery.ts`, never a bare
+`fetchBaseQuery`: it adds a 12 s timeout and up to two retries, only on transient failures (network,
+timeout, 5xx, 429). A bare `fetchBaseQuery` has no timeout, so a hung request shows a skeleton
+forever.
+
 Nothing here derives advice. Rules live in the feature that owns the persona
 (`src/features/*/lib/advice.ts`), because two personas score the same reading differently.
 
@@ -81,6 +86,10 @@ All MUI. There are no shadcn primitives left: `badge`, `button`, `card`, `select
 - **`DashboardShell`** is the header-plus-four-states frame all four dashboards share. Its
   `children` is a plain node, unlike `QueryState`'s render prop, because the shell holds no `data`
   to guard — a call site that needs the payload narrowed puts `QueryState` *inside* it.
+- **`SectionErrorBoundary`** catches *render* errors, which `QueryState` and `DashboardShell`
+  cannot see — they handle failed *requests*. `App` wraps every page section in one, with
+  `resetKeys` of the coordinate and profile, so one broken panel shows a named error with Retry
+  instead of blanking the page.
 - **`HeroConditions`**, **`MetricTile`** and **`RiskGauge`** are the atoms dashboards are rebuilt
   from. None of them communicates severity by colour alone: `MetricTile` puts the level in its
   accessible name and steps a left rule with it, `RiskGauge` uses a distinct icon outline per level

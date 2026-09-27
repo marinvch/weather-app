@@ -68,6 +68,9 @@
       content="Multi-profile weather application with AI-powered intelligent alerts, historical data analysis, and offline support"
     />
     <meta name="theme-color" content="#0ea5e9" />
+    <!-- The standard name first. Chrome logs a deprecation warning when only
+         the apple- prefixed one is present; older iOS still reads that one. -->
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Weather Pro" />

@@ -4,8 +4,8 @@
 
 | Check | Command | A healthy run |
 |---|---|---|
-| Build | `npm run build` | exits 0 and ends `✓ built in …`; the "chunks larger than 500 kB" warning on `index-*.js` was already there on `dev` and is not a failure |
-| Test | `npm run test:run` | every test passes; none skipped to get there (8 files, 83 tests on `dev` at 63dfbf1) |
+| Build | `npm run build` | exits 0 and ends `✓ built in …`; the "chunks larger than 500 kB" warning on `index-*.js` (~700 kB: MUI, Emotion, the map, the shell) is known and is not a failure |
+| Test | `npm run test:run` | every test passes; none skipped to get there (37 files, 638 tests on `dev` after the 2026-09-27 robustness pass) |
 | Lint | `npm run lint` | no output, exit 0 |
 | Typecheck | `npm run typecheck` | no output, exit 0 |
 
