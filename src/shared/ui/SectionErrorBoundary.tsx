@@ -13,7 +13,20 @@ export interface SectionErrorBoundaryProps {
    * render again, so a crash on one place does not stick to the next.
    */
   resetKeys?: readonly unknown[];
+  /** Injected in tests; defaults to a full page reload. */
+  onReload?: () => void;
   children: ReactNode;
+}
+
+/**
+ * A code-split chunk that failed to download — Chrome, Firefox and Safari
+ * word it differently. It needs a reload rather than a retry: React caches a
+ * rejected `lazy()` for the life of the page, so re-rendering re-throws it.
+ */
+function isChunkLoadError(error: Error): boolean {
+  return /dynamically imported module|importing a module script failed/i.test(
+    error.message,
+  );
 }
 
 interface State {
@@ -72,8 +85,35 @@ export class SectionErrorBoundary extends Component<
 
   private retry = () => this.setState({ error: null });
 
+  private reload = () =>
+    (this.props.onReload ?? (() => window.location.reload()))();
+
   render() {
-    if (!this.state.error) return this.props.children;
+    const { error } = this.state;
+    if (!error) return this.props.children;
+
+    if (isChunkLoadError(error)) {
+      return (
+        <Alert
+          severity="warning"
+          action={
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              startIcon={<RefreshIcon />}
+              onClick={this.reload}
+            >
+              Reload
+            </Button>
+          }
+        >
+          <AlertTitle>{this.props.section} is not available offline yet</AlertTitle>
+          This part of the app was never downloaded on this device, and it
+          could not be fetched now. Reload once you are back online.
+        </Alert>
+      );
+    }
 
     return (
       <Alert

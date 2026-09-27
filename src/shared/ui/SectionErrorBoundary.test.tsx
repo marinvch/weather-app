@@ -93,6 +93,30 @@ describe("SectionErrorBoundary", () => {
     expect(screen.getByText("recovered")).toBeInTheDocument();
   });
 
+  it.each([
+    "Failed to fetch dynamically imported module: /assets/MarineDashboard-x.js",
+    "error loading dynamically imported module: /assets/MarineDashboard-x.js",
+    "Importing a module script failed.",
+  ])("offers Reload, not Retry, when code failed to download (%s)", async (message) => {
+    // React caches a rejected lazy() for the life of the page, so Retry would
+    // re-throw the same error forever. Only a reload fetches the chunk again.
+    function MissingChunk(): never {
+      throw new TypeError(message);
+    }
+    const onReload = vi.fn();
+    const user = userEvent.setup();
+    renderThemed(
+      <SectionErrorBoundary section="Marine & fishing" onReload={onReload}>
+        <MissingChunk />
+      </SectionErrorBoundary>,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/offline/i);
+    expect(screen.queryByRole("button", { name: /retry/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /reload/i }));
+    expect(onReload).toHaveBeenCalledOnce();
+  });
+
   it("stays in the error state while the reset keys are unchanged", () => {
     const { rerender } = renderThemed(
       <SectionErrorBoundary section="Dashboard" resetKeys={["a"]}>
