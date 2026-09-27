@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  getCurrentLocation,
   getEmergencyNumber,
   getLocationInfo,
   isCoastalLocation,
@@ -184,5 +185,67 @@ describe("getLocationInfo — request shape", () => {
     ];
     expect(url).toContain("nominatim.openstreetmap.org/reverse");
     expect(init?.headers).toBeUndefined();
+  });
+});
+
+describe("getCurrentLocation", () => {
+  /** A geolocation stub whose calls the test settles by hand. */
+  function stubGeolocation() {
+    const calls: Array<{
+      success: PositionCallback;
+      failure: PositionErrorCallback;
+    }> = [];
+    const getCurrentPosition = vi.fn(
+      (success: PositionCallback, failure: PositionErrorCallback) => {
+        calls.push({ success, failure });
+      },
+    );
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    return { getCurrentPosition, calls };
+  }
+
+  const positionError = (code: number) =>
+    ({ code, message: "raw browser text" }) as GeolocationPositionError;
+
+  it("shares one request between concurrent callers", async () => {
+    // React StrictMode runs the mount effect twice in development, and each run
+    // used to start its own request — two permission checks, two timeouts, two
+    // identical errors in the console.
+    const { getCurrentPosition, calls } = stubGeolocation();
+
+    const first = getCurrentLocation();
+    const second = getCurrentLocation();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+
+    calls[0].failure(positionError(3));
+    await expect(first).rejects.toThrow();
+    await expect(second).rejects.toThrow();
+  });
+
+  it("starts a fresh request once the previous one has settled", async () => {
+    const { getCurrentPosition, calls } = stubGeolocation();
+
+    const first = getCurrentLocation();
+    calls[0].failure(positionError(3));
+    await expect(first).rejects.toThrow();
+
+    // "Use my location" after a timeout must actually ask again.
+    void getCurrentLocation().catch(() => {});
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    calls[1].failure(positionError(3));
+  });
+
+  it.each([
+    [1, /permission/i],
+    [2, /could not determine/i],
+    [3, /took too long/i],
+  ])("explains error code %i in words, not the browser's text", async (code, pattern) => {
+    const { calls } = stubGeolocation();
+    const request = getCurrentLocation();
+    calls[0].failure(positionError(code));
+
+    const error = await request.catch((e: Error) => e);
+    expect(error.message).toMatch(pattern);
+    expect(error.message).not.toContain("raw browser text");
   });
 });

@@ -121,7 +121,44 @@ const EMERGENCY_NUMBERS: Record<string, EmergencyNumbers> = {
   },
 };
 
-export async function getCurrentLocation(): Promise<LocationInfo> {
+/**
+ * The browser's own `GeolocationPositionError.message` is implementation text
+ * ("Timeout expired", "User denied Geolocation") that varies by browser and
+ * says nothing about what to do. The code is standard, so the wording is ours.
+ */
+function describePositionError(error: GeolocationPositionError): string {
+  switch (error.code) {
+    case 1:
+      return "Location permission was denied — search for a place instead, or allow location in your browser settings";
+    case 2:
+      return "Your device could not determine where you are — search for a place instead";
+    case 3:
+      return "Finding your location took too long — try again, or search for a place";
+    default:
+      return "Could not get your location — search for a place instead";
+  }
+}
+
+/** The request in flight, shared by every caller until it settles. */
+let pendingLocation: Promise<LocationInfo> | null = null;
+
+/**
+ * The device's position, reverse-geocoded.
+ *
+ * Concurrent calls share one request. React StrictMode runs the mount effect
+ * twice in development, and each run used to start its own — two permission
+ * checks, two ten-second timeouts, two identical errors. Once the request
+ * settles the next call asks again, so "Use my location" after a failure is a
+ * real retry.
+ */
+export function getCurrentLocation(): Promise<LocationInfo> {
+  pendingLocation ??= requestCurrentLocation().finally(() => {
+    pendingLocation = null;
+  });
+  return pendingLocation;
+}
+
+function requestCurrentLocation(): Promise<LocationInfo> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation is not supported by this browser"));
@@ -154,7 +191,7 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
         }
       },
       (error) => {
-        reject(new Error(`Failed to get your location: ${error.message}`));
+        reject(new Error(describePositionError(error)));
       },
       {
         enableHighAccuracy: true,
