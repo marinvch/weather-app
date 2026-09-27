@@ -30,7 +30,11 @@ export default defineConfig({
         manualChunks: {
           vendor: ["react", "react-dom"],
           redux: ["@reduxjs/toolkit", "react-redux"],
-          charts: ["recharts"],
+          // No `charts: ["recharts"]` entry, on purpose. Recharts shares small
+          // helpers with MUI; a manual chunk pulls those in with it, so the
+          // main bundle had to preload all ~320 kB of chart code to reach
+          // them. Left alone, Rollup puts recharts in an async chunk that
+          // only the dashboards drawing a chart ever request.
           maps: ["leaflet"],
         },
       },
