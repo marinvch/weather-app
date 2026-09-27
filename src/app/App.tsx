@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { Provider } from 'react-redux';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
@@ -11,7 +11,8 @@ import PlaceIcon from '@mui/icons-material/Place';
 import { store } from '@/store/store';
 import { HeaderControls } from '@/app/components/HeaderControls';
 import { ThemeModeSync } from '@/app/components/ThemeModeControl';
-import { PROFILES, profileFromSearch } from '@/app/profiles';
+import { PROFILES, preloadDashboards, profileFromSearch } from '@/app/profiles';
+import { DashboardSkeleton } from '@/shared/ui/DashboardShell';
 import { AirQualityPanel } from '@/features/airquality/components/AirQualityPanel';
 import { AlertsPanel } from '@/features/alerts/components/AlertsPanel';
 import { InstallPrompt } from '@/features/pwa/components/InstallPrompt';
@@ -134,6 +135,20 @@ function WeatherApp() {
     initializeServiceWorker();
   }, []);
 
+  useEffect(() => {
+    // Fetch the other lenses' chunks once the page has settled, so each one is
+    // in the service worker's cache before the device next goes offline.
+    // Idle time rather than on mount: they must not compete with the first
+    // forecast request. Safari has no requestIdleCallback, hence the timeout.
+    const preload = () => void preloadDashboards().catch(() => {});
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(preload, { timeout: 10_000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(preload, 3_000);
+    return () => clearTimeout(id);
+  }, []);
+
   // The profile registry is the single source of truth: one entry per persona
   // carries its label, its icon and its dashboard, so there is no switch here
   // to fall out of step with the selector.
@@ -231,7 +246,11 @@ function WeatherApp() {
           </SectionErrorBoundary>
 
           <SectionErrorBoundary section={PROFILES[profile].label} resetKeys={resetKeys}>
-            <Dashboard coordinates={currentCoords} locationName={currentLocationName} />
+            {/* Code-split per lens. A chunk that fails to load (offline before
+                it was ever cached) throws here and the boundary catches it. */}
+            <Suspense fallback={<DashboardSkeleton />}>
+              <Dashboard coordinates={currentCoords} locationName={currentLocationName} />
+            </Suspense>
           </SectionErrorBoundary>
 
           {/* Air quality is persona-neutral, so it is mounted for all four

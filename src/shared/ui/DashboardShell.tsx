@@ -85,8 +85,11 @@ function ShellHeader({
  * and because the boxes occupy the space the content will, nothing jumps when
  * the data lands. That reflow is the actual complaint behind "the app feels
  * janky", not the wait itself.
+ *
+ * Exported as `DashboardSkeleton` for the moment before a dashboard's code has
+ * loaded, which should look the same as the moment before its data has.
  */
-function ShellSkeleton() {
+export function DashboardSkeleton() {
   return (
     <Stack spacing={3} aria-hidden>
       <Skeleton variant="rounded" height={196} sx={{ borderRadius: 4 }} />
@@ -169,7 +172,7 @@ export function DashboardShell({
           skeletons or a mid-flight state interrupting whatever is being read. */}
       <Box aria-live="polite" aria-busy={isLoading}>
         {isLoading ? (
-          <ShellSkeleton />
+          <DashboardSkeleton />
         ) : isError ? (
           <Alert severity="error" action={retry}>
             <AlertTitle>{title} could not be loaded</AlertTitle>

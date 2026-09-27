@@ -16,16 +16,12 @@
  * together. A feature must never import it.
  */
 
-import type { ComponentType, ReactNode } from "react";
+import { lazy, type ComponentType, type ReactNode } from "react";
 import PeopleIcon from "@mui/icons-material/People";
 import SailingIcon from "@mui/icons-material/Sailing";
 import TerrainIcon from "@mui/icons-material/Terrain";
 import GrassIcon from "@mui/icons-material/Grass";
 
-import { GeneralDashboard } from "@/features/forecast/components/GeneralDashboard";
-import { MarineDashboard } from "@/features/marine/components/MarineDashboard";
-import { MountainDashboard } from "@/features/mountain/components/MountainDashboard";
-import { AgriculturalDashboard } from "@/features/agriculture/components/AgriculturalDashboard";
 import type { Coordinates, UserProfile } from "@/shared/types/weather";
 
 /** Every dashboard takes exactly these two. `locationName` is display-only,
@@ -42,39 +38,80 @@ export interface ProfileDefinition {
   /** The one-line "what this lens is for", shown under the label in the menu. */
   description: string;
   icon: ReactNode;
+  /** Code-split: render inside `<Suspense>`. */
   Dashboard: ComponentType<DashboardProps>;
+  /** Fetches the dashboard's chunk. Calling it again is free once loaded. */
+  load: () => Promise<{ default: ComponentType<DashboardProps> }>;
+}
+
+type DashboardLoader = ProfileDefinition["load"];
+
+/**
+ * Each dashboard is its own chunk, so first load downloads only the lens in
+ * use rather than all four — they were most of an 800 kB main bundle.
+ */
+const loaders: Record<UserProfile, DashboardLoader> = {
+  general: () =>
+    import("@/features/forecast/components/GeneralDashboard").then((m) => ({
+      default: m.GeneralDashboard,
+    })),
+  marine: () =>
+    import("@/features/marine/components/MarineDashboard").then((m) => ({
+      default: m.MarineDashboard,
+    })),
+  mountain: () =>
+    import("@/features/mountain/components/MountainDashboard").then((m) => ({
+      default: m.MountainDashboard,
+    })),
+  agriculture: () =>
+    import("@/features/agriculture/components/AgriculturalDashboard").then(
+      (m) => ({ default: m.AgriculturalDashboard }),
+    ),
+};
+
+function lens(
+  definition: Omit<ProfileDefinition, "Dashboard" | "load">,
+): ProfileDefinition {
+  const load = loaders[definition.id];
+  return { ...definition, load, Dashboard: lazy(load) };
 }
 
 export const PROFILES: Record<UserProfile, ProfileDefinition> = {
-  general: {
+  general: lens({
     id: "general",
     label: "General",
     description: "What to wear today",
     icon: <PeopleIcon fontSize="small" />,
-    Dashboard: GeneralDashboard,
-  },
-  marine: {
+  }),
+  marine: lens({
     id: "marine",
     label: "Marine & fishing",
     description: "Sea state, waves, whether to go out",
     icon: <SailingIcon fontSize="small" />,
-    Dashboard: MarineDashboard,
-  },
-  mountain: {
+  }),
+  mountain: lens({
     id: "mountain",
     label: "Mountaineering",
     description: "Ascent prep, avalanche, altitude wind",
     icon: <TerrainIcon fontSize="small" />,
-    Dashboard: MountainDashboard,
-  },
-  agriculture: {
+  }),
+  agriculture: lens({
     id: "agriculture",
     label: "Growing",
     description: "Soil, frost, irrigation",
     icon: <GrassIcon fontSize="small" />,
-    Dashboard: AgriculturalDashboard,
-  },
+  }),
 };
+
+/**
+ * Fetch every dashboard's chunk. Called once the page is idle, so a lens never
+ * opened online is still in the service worker's asset cache when the device
+ * goes offline — before code-splitting all four came in the main bundle, and
+ * this keeps that guarantee.
+ */
+export function preloadDashboards() {
+  return Promise.all(Object.values(loaders).map((load) => load()));
+}
 
 /** Menu order. Insertion order of the record above, not re-sorted — `general`
  * stays first because it is the default. */
