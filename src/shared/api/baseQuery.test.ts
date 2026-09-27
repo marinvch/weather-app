@@ -57,6 +57,25 @@ describe("createBaseQuery", () => {
     expect(fetchFn).toHaveBeenCalledTimes(3);
   });
 
+  it("retries with RTK's own backoff when none is injected", async () => {
+    // Every other test here injects `backoff`, which is how a production-only
+    // crash shipped: passing `backoff: undefined` explicitly overwrote RTK's
+    // default and every transient failure became "options.backoff is not a
+    // function". This one runs the real default, which waits under ~1 s for a
+    // first retry.
+    const fetchFn = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(json(503))
+      .mockResolvedValueOnce(json(200, { ok: true }));
+
+    const query = createBaseQuery("https://api.example.test/v1/", { fetchFn });
+    const result = await query("forecast", api(), {});
+
+    expect(result.error).toBeUndefined();
+    expect(result.data).toEqual({ ok: true });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  }, 5_000);
+
   it("gives up after the retry budget and reports the last error", async () => {
     const fetchFn = vi.fn<typeof fetch>().mockImplementation(async () => json(503));
 

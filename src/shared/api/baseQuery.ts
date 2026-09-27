@@ -56,7 +56,10 @@ export function createBaseQuery(
   }: BaseQueryOptions = {},
 ) {
   return retry(fetchBaseQuery({ baseUrl, timeout: timeoutMs, fetchFn }), {
-    backoff,
+    // Spread only when given. RTK merges `{ backoff: defaultBackoff, ...ours }`,
+    // so an explicit `backoff: undefined` overwrites its default and every
+    // retry throws "options.backoff is not a function".
+    ...(backoff && { backoff }),
     // `attempt` is 1 after the first failure, so this allows exactly
     // `maxRetries` further attempts.
     retryCondition: (error, _args, { attempt }) =>
