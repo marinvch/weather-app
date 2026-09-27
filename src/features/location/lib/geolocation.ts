@@ -143,16 +143,42 @@ function describePositionError(error: GeolocationPositionError): string {
 let pendingLocation: Promise<LocationInfo> | null = null;
 
 /**
+ * The longest a location request may stay pending, prompt included. The API's
+ * own `timeout` does not start until permission is granted, and Firefox calls
+ * neither callback when its prompt is dismissed — without this, one hung
+ * request would be shared by every later "Use my location" click. Generous,
+ * so someone reading the permission prompt is not cut off mid-thought.
+ */
+export const LOCATION_DEADLINE_MS = 30_000;
+
+function withDeadline<T>(request: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            describePositionError({ code: 3 } as GeolocationPositionError),
+          ),
+        ),
+      LOCATION_DEADLINE_MS,
+    );
+  });
+  return Promise.race([request, deadline]).finally(() => clearTimeout(timer));
+}
+
+/**
  * The device's position, reverse-geocoded.
  *
  * Concurrent calls share one request. React StrictMode runs the mount effect
  * twice in development, and each run used to start its own — two permission
  * checks, two ten-second timeouts, two identical errors. Once the request
  * settles the next call asks again, so "Use my location" after a failure is a
- * real retry.
+ * real retry. A request that never settles is cut off at
+ * `LOCATION_DEADLINE_MS`.
  */
 export function getCurrentLocation(): Promise<LocationInfo> {
-  pendingLocation ??= requestCurrentLocation().finally(() => {
+  pendingLocation ??= withDeadline(requestCurrentLocation()).finally(() => {
     pendingLocation = null;
   });
   return pendingLocation;

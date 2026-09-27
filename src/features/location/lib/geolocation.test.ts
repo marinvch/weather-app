@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  LOCATION_DEADLINE_MS,
   getCurrentLocation,
   getEmergencyNumber,
   getLocationInfo,
@@ -233,6 +234,30 @@ describe("getCurrentLocation", () => {
     void getCurrentLocation().catch(() => {});
     expect(getCurrentPosition).toHaveBeenCalledTimes(2);
     calls[1].failure(positionError(3));
+  });
+
+  it("gives up on a request the browser never answers", async () => {
+    // Firefox calls neither callback when the permission prompt is dismissed,
+    // and the API's own timeout does not start until permission is granted.
+    // Unbounded, that one pending promise would be shared by every later
+    // "Use my location" click until the page was reloaded.
+    vi.useFakeTimers();
+    try {
+      const { getCurrentPosition, calls } = stubGeolocation();
+
+      const stuck = getCurrentLocation();
+      const outcome = expect(stuck).rejects.toThrow(/took too long/i);
+      await vi.advanceTimersByTimeAsync(LOCATION_DEADLINE_MS);
+      await outcome;
+
+      const next = getCurrentLocation();
+      expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+      // Settle it, or it stays shared into the next test.
+      calls[1].failure(positionError(3));
+      await expect(next).rejects.toThrow();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it.each([
