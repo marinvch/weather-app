@@ -231,3 +231,225 @@ export const weatherCodes: Record<
   96: { description: "Thunderstorm with slight hail", icon: "⛈️" },
   99: { description: "Thunderstorm with heavy hail", icon: "⛈️" },
 };
+
+// ---------------------------------------------------------------------------
+// Risk severity
+// ---------------------------------------------------------------------------
+
+/**
+ * The four-step severity scale the shared **UI** communicates with — `RiskGauge`,
+ * `MetricTile`'s `severity` and the `risk` palette section in
+ * `@/shared/theme/theme`, where step *n* of `severity: 0|1|2|3` is the *n*th
+ * member of this union.
+ *
+ * ## `"medium"` next to `"moderate"` is not a typo. Do not "fix" it.
+ *
+ * This app holds **nine** different severity-ish string unions, and they are
+ * deliberately separate types. This one is for display. `AIAnalysis.riskLevel`
+ * below is the three-step `"low" | "medium" | "high"` that the four
+ * `features/*\/lib/advice.ts` scorers emit, and it **stays** three-step — the
+ * decision was to convert at the display boundary with `riskLevelFromAnalysis`
+ * rather than migrate the root type. That function is the only sanctioned
+ * crossing. A cast is not.
+ *
+ * Three of the other unions cannot be mapped onto this one at all, and a
+ * "consolidation" that widens them is a bug, not a cleanup:
+ *
+ * - `MountainAnalysis.avalancheRisk` is the five-step European Avalanche Danger
+ *   Scale. **`"considerable"` (EADS level 3) has no equivalent here**, and
+ *   collapsing it into "moderate" or "high" is wrong in both directions —
+ *   that is an avalanche-safety statement, not a styling detail.
+ * - `AgriculturalAnalysis.frostRisk` is `"none" | "light" | "moderate" |
+ *   "severe"`. It shares two words with this union, which is exactly what makes
+ *   it look assignable. `"none"` is a real zero state and `"light"` is not
+ *   `"moderate"`; aligning the four positionally shifts every reading up a band.
+ * - The marine sea-state reading carries a `"no data"` member (`"unknown"` in
+ *   the version of `features/marine/lib` this note was written against). That
+ *   is the inland-coordinate case, not a severity: the marine host answers an
+ *   inland point with a series of nulls rather than an error. It belongs in
+ *   `DashboardShell`'s `isEmpty`, and mapping it to `"low"` claims a calm sea
+ *   where there is none.
+ *
+ * And `MarineAnalysis.fishingConditions` / `AgriculturalAnalysis.soilConditions`
+ * run **good to bad**, the opposite direction to `RISK_LEVELS`. Never map either
+ * of them by array index: `"excellent"` would land on `"low"` only by accident
+ * of ordering, and `"poor"` would come out as low risk.
+ */
+export type RiskLevel = "low" | "moderate" | "high" | "severe";
+
+/** The ordered scale, so a severity index and a `RiskLevel` agree everywhere. */
+export const RISK_LEVELS: readonly RiskLevel[] = [
+  "low",
+  "moderate",
+  "high",
+  "severe",
+] as const;
+
+/**
+ * Widen an Analysis's three-step `riskLevel` onto the four-step display scale.
+ *
+ * "medium" becomes "moderate" — the same band under the name the palette uses.
+ * Nothing produces "severe" from an Analysis today; it exists for the alert and
+ * flood surfaces, which do have a fourth band.
+ *
+ * **This is a load-bearing boundary, not a convenience.** It is the one
+ * sanctioned crossing between the scorers' scale and the palette's, chosen over
+ * migrating `AIAnalysis.riskLevel` itself. Every call site that hands an
+ * Analysis to `RiskGauge` or `MetricTile` goes through here; a cast instead
+ * yields `"medium"`, which matches no key in the `risk` palette and renders
+ * `undefined` colours rather than failing.
+ */
+export function riskLevelFromAnalysis(
+  level: AIAnalysis["riskLevel"],
+): RiskLevel {
+  return level === "medium" ? "moderate" : level;
+}
+
+// ---------------------------------------------------------------------------
+// Air quality — `air-quality-api.open-meteo.com` (see @/shared/api/airQualityApi)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pollutant concentrations are µg/m³ except `carbon_monoxide`, which Open-Meteo
+ * also reports in µg/m³ (not the ppm most national indices quote). The two AQI
+ * fields are index values, not concentrations, and use different scales:
+ * `european_aqi` runs 0–100+, `us_aqi` 0–500.
+ *
+ * Every field is optional. The air quality API answers with only the variables
+ * that were asked for, and drops any it has no data for at that coordinate —
+ * pollen in particular is Europe-only.
+ */
+export interface AirQualityCurrent {
+  time: string;
+  interval?: number;
+  pm10?: number;
+  pm2_5?: number;
+  carbon_monoxide?: number;
+  nitrogen_dioxide?: number;
+  sulphur_dioxide?: number;
+  ozone?: number;
+  european_aqi?: number;
+  us_aqi?: number;
+  uv_index?: number;
+  uv_index_clear_sky?: number;
+  alder_pollen?: number;
+  birch_pollen?: number;
+  grass_pollen?: number;
+  mugwort_pollen?: number;
+  olive_pollen?: number;
+  ragweed_pollen?: number;
+}
+
+export interface AirQualityHourly {
+  time: string[];
+  pm10?: number[];
+  pm2_5?: number[];
+  carbon_monoxide?: number[];
+  nitrogen_dioxide?: number[];
+  sulphur_dioxide?: number[];
+  ozone?: number[];
+  european_aqi?: number[];
+  us_aqi?: number[];
+  uv_index?: number[];
+  uv_index_clear_sky?: number[];
+  alder_pollen?: number[];
+  birch_pollen?: number[];
+  grass_pollen?: number[];
+  mugwort_pollen?: number[];
+  olive_pollen?: number[];
+  ragweed_pollen?: number[];
+}
+
+export interface AirQualityResponse {
+  latitude: number;
+  longitude: number;
+  current?: AirQualityCurrent;
+  hourly?: AirQualityHourly;
+  timezone: string;
+  timezone_abbreviation?: string;
+  utc_offset_seconds?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Forward geocoding — `geocoding-api.open-meteo.com` (see @/shared/api/geocodingApi)
+// ---------------------------------------------------------------------------
+
+/**
+ * A place returned by a name search. `latitude` / `longitude` are WGS 84
+ * decimal degrees like everything else in this app, so a result can be handed
+ * straight to a forecast query — but it arrives from outside, so normalize it
+ * with `@/shared/lib/geo` at the boundary that admits it.
+ *
+ * Distinct from the *reverse* direction (coordinate to name), which is
+ * Nominatim's job and lives in `features/location`. Open-Meteo's geocoder only
+ * goes name to coordinate.
+ */
+export interface GeocodingResult {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country?: string;
+  country_code?: string;
+  /** First-level division — a state, province or oblast. */
+  admin1?: string;
+  /** Second-level division — a county or district. */
+  admin2?: string;
+  timezone?: string;
+  population?: number;
+  /** Metres above mean sea level. */
+  elevation?: number;
+}
+
+export interface GeocodingResponse {
+  /** Absent, not empty, when nothing matched — the field is omitted entirely. */
+  results?: GeocodingResult[];
+  generationtime_ms?: number;
+}
+
+// ---------------------------------------------------------------------------
+// River discharge — `flood-api.open-meteo.com` (see @/shared/api/floodApi)
+// ---------------------------------------------------------------------------
+
+/**
+ * Discharge is m³/s through the GloFAS river cell nearest the coordinate. A
+ * coordinate with no modelled river nearby answers with nulls rather than an
+ * error, which is why the series are nullable.
+ */
+export interface FloodDaily {
+  time: string[];
+  river_discharge?: (number | null)[];
+  river_discharge_mean?: (number | null)[];
+  river_discharge_max?: (number | null)[];
+}
+
+export interface FloodResponse {
+  latitude: number;
+  longitude: number;
+  daily: FloodDaily;
+  timezone?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Astronomy
+// ---------------------------------------------------------------------------
+
+/**
+ * The daily astronomy block, additive over `DailyWeather` so an existing
+ * consumer of a plain daily payload keeps compiling.
+ *
+ * Durations are **seconds**, not hours: `daylight_duration` is sunrise-to-sunset
+ * and `sunshine_duration` is the part of it above the "sunny" irradiance
+ * threshold, so sunshine ≤ daylight always. Every field is optional because
+ * Open-Meteo returns only the `daily=` variables that were requested.
+ */
+export interface DailyAstronomy {
+  sunrise?: string[];
+  sunset?: string[];
+  daylight_duration?: number[];
+  sunshine_duration?: number[];
+  uv_index_max?: number[];
+}
+
+/** `DailyWeather` plus the astronomy block, for the forecast surfaces. */
+export type DailyWeatherWithAstronomy = DailyWeather & DailyAstronomy;

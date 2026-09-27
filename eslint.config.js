@@ -12,6 +12,7 @@ const FEATURES = [
   'agriculture',
   'location',
   'alerts',
+  'airquality',
   'pwa',
 ]
 

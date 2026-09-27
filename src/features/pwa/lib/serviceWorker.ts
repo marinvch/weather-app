@@ -1,194 +1,261 @@
-// Service Worker registration utility
+/**
+ * The page's half of the service worker contract in `public/sw.js`.
+ *
+ * Everything here is a no-op when `navigator.serviceWorker` is missing, which
+ * is also the case under jsdom — the test suite can exercise the callers, it
+ * just never sees a registration.
+ */
+
+export interface CacheStatus {
+  totalCached: number;
+  cacheSize: number;
+  lastUpdated: number;
+  version?: string;
+}
+
+const SW_URL = "/sw.js";
+
+const isSupported = (): boolean =>
+  typeof navigator !== "undefined" && "serviceWorker" in navigator;
+
+// ---------------------------------------------------------------------------
+// Registration and updates
+// ---------------------------------------------------------------------------
+
+type UpdateListener = (updateAvailable: boolean) => void;
+
+let waitingWorker: ServiceWorker | null = null;
+const updateListeners = new Set<UpdateListener>();
+/** Set once the user accepts an update, so `controllerchange` reloads exactly once. */
+let reloadingForUpdate = false;
+let controllerChangeBound = false;
+
+const announceUpdate = (worker: ServiceWorker | null): void => {
+  waitingWorker = worker;
+  updateListeners.forEach((listener) => listener(worker !== null));
+};
+
+/** Subscribe to "a new version is waiting". Returns the unsubscribe function. */
+export const onServiceWorkerUpdate = (listener: UpdateListener): (() => void) => {
+  updateListeners.add(listener);
+  // Fire immediately so a component that mounts after the worker landed still
+  // learns about it.
+  listener(waitingWorker !== null);
+  return () => {
+    updateListeners.delete(listener);
+  };
+};
+
+export const isUpdateAvailable = (): boolean => waitingWorker !== null;
+
+/**
+ * Tell the waiting worker to take over, then reload once it has. The reload is
+ * driven by `controllerchange` rather than fired straight away: reloading
+ * before the new worker controls the page just re-runs the old one.
+ */
+export const applyServiceWorkerUpdate = (): void => {
+  if (!waitingWorker) {
+    window.location.reload();
+    return;
+  }
+
+  reloadingForUpdate = true;
+  waitingWorker.postMessage({ type: "SKIP_WAITING" });
+};
+
+const trackWaitingWorker = (registration: ServiceWorkerRegistration): void => {
+  // A worker can already be waiting when we register — e.g. the tab was open
+  // when the new build was deployed and the user never reloaded.
+  if (registration.waiting && navigator.serviceWorker.controller) {
+    announceUpdate(registration.waiting);
+  }
+
+  registration.addEventListener("updatefound", () => {
+    const installing = registration.installing;
+    if (!installing) return;
+
+    installing.addEventListener("statechange", () => {
+      if (installing.state !== "installed") return;
+
+      if (navigator.serviceWorker.controller) {
+        // There was a previous worker, so this is an update rather than the
+        // first install: hold it until the user says go.
+        announceUpdate(installing);
+      }
+    });
+  });
+};
+
 export const registerServiceWorker =
   async (): Promise<ServiceWorkerRegistration | null> => {
-    if ("serviceWorker" in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
+    // `beforeinstallprompt` fires early and is never replayed, so the listener
+    // has to exist before we await anything. setupInstallPrompt() is
+    // idempotent, so a caller that also calls it directly is fine.
+    setupInstallPrompt();
+
+    if (!isSupported()) {
+      return null;
+    }
+
+    // In dev, Vite serves unbundled modules from /src and /@vite; caching those
+    // makes edits appear not to take. Any worker left over from a production
+    // build on the same origin (localhost) is removed for the same reason.
+    if (import.meta.env.DEV) {
+      const existing = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(existing.map((registration) => registration.unregister()));
+      return null;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register(SW_URL, {
+        scope: "/",
+      });
+
+      if (!controllerChangeBound) {
+        controllerChangeBound = true;
+        navigator.serviceWorker.addEventListener("controllerchange", () => {
+          if (!reloadingForUpdate) return;
+          reloadingForUpdate = false;
+          window.location.reload();
         });
-
-        console.log(
-          "Weather App: Service Worker registered successfully:",
-          registration.scope
-        );
-
-        // Check for updates
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener("statechange", () => {
-              if (
-                newWorker.state === "installed" &&
-                navigator.serviceWorker.controller
-              ) {
-                // New service worker installed, notify user
-                console.log("Weather App: New version available");
-                notifyUpdate();
-              }
-            });
-          }
-        });
-
-        return registration;
-      } catch (error) {
-        console.error(
-          "Weather App: Service Worker registration failed:",
-          error
-        );
-        return null;
       }
-    } else {
-      console.log("Weather App: Service Worker not supported");
+
+      trackWaitingWorker(registration);
+
+      // Browsers only check for a new worker on navigation; a long-lived tab
+      // would never notice a deploy otherwise.
+      window.addEventListener("focus", () => {
+        registration.update().catch(() => undefined);
+      });
+
+      return registration;
+    } catch (error) {
+      console.error("Weather App: Service Worker registration failed:", error);
       return null;
     }
   };
 
-// Unregister service worker
 export const unregisterServiceWorker = async (): Promise<boolean> => {
-  if ("serviceWorker" in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration) {
-        const result = await registration.unregister();
-        console.log("Weather App: Service Worker unregistered:", result);
-        return result;
-      }
-    } catch (error) {
-      console.error(
-        "Weather App: Service Worker unregistration failed:",
-        error
-      );
+  if (!isSupported()) return false;
+
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration) {
+      return await registration.unregister();
     }
+  } catch (error) {
+    console.error("Weather App: Service Worker unregistration failed:", error);
   }
   return false;
 };
 
-// Check if app is running from cache (offline)
-export const isAppCached = (): boolean => {
-  return (
-    "serviceWorker" in navigator && navigator.serviceWorker.controller !== null
-  );
-};
+/** True once a worker controls this page — i.e. offline support is live. */
+export const isAppCached = (): boolean =>
+  isSupported() && navigator.serviceWorker.controller !== null;
 
-// Request background sync
-export const requestBackgroundSync = async (tag: string): Promise<void> => {
-  if ("serviceWorker" in navigator) {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      // Background sync is experimental - fallback gracefully
-      if ("sync" in registration) {
-        await (
-          registration as ServiceWorkerRegistration & {
-            sync: { register: (tag: string) => Promise<void> };
-          }
-        ).sync.register(tag);
-        console.log("Weather App: Background sync requested:", tag);
-      } else {
-        console.log("Weather App: Background sync not supported");
-      }
-    } catch (error) {
-      console.error("Weather App: Background sync request failed:", error);
-    }
+// ---------------------------------------------------------------------------
+// Talking to the active worker
+// ---------------------------------------------------------------------------
+
+/** Round-trip a message to the worker over a MessageChannel, or resolve null. */
+const askWorker = <T>(type: string, timeoutMs = 5000): Promise<T | null> => {
+  if (!isSupported() || !navigator.serviceWorker.controller) {
+    return Promise.resolve(null);
   }
+
+  return new Promise<T | null>((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+
+    channel.port1.onmessage = (event: MessageEvent<T>) => {
+      clearTimeout(timer);
+      resolve(event.data);
+    };
+
+    navigator.serviceWorker.controller?.postMessage({ type }, [channel.port2]);
+  });
 };
 
-// Clear weather cache
+export const getCacheStatus = (): Promise<CacheStatus | null> =>
+  askWorker<CacheStatus>("GET_CACHE_STATUS");
+
 export const clearWeatherCache = async (): Promise<void> => {
-  if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: "CLEAR_WEATHER_CACHE",
-    });
+  await askWorker<{ cleared: boolean }>("CLEAR_WEATHER_CACHE");
+};
+
+export const getServiceWorkerVersion = (): Promise<{
+  version: string;
+  caches: string[];
+} | null> => askWorker("GET_VERSION");
+
+export const requestBackgroundSync = async (tag: string): Promise<void> => {
+  if (!isSupported()) return;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    // Background sync is not in every browser and not in the DOM lib types.
+    if ("sync" in registration) {
+      await (
+        registration as ServiceWorkerRegistration & {
+          sync: { register: (tag: string) => Promise<void> };
+        }
+      ).sync.register(tag);
+    }
+  } catch (error) {
+    console.error("Weather App: Background sync request failed:", error);
   }
 };
 
-// Get cache status
-export const getCacheStatus = async (): Promise<{
-  totalCached: number;
-  cacheSize: number;
-  lastUpdated: number;
-} | null> => {
-  if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-    return new Promise((resolve) => {
-      const messageChannel = new MessageChannel();
+// ---------------------------------------------------------------------------
+// Push — the delivery mechanism for an Alert the user opted into
+// ---------------------------------------------------------------------------
 
-      messageChannel.port1.onmessage = (event) => {
-        resolve(event.data);
-      };
-
-      navigator.serviceWorker.controller!.postMessage(
-        { type: "GET_CACHE_STATUS" },
-        [messageChannel.port2]
-      );
-
-      // Timeout after 5 seconds
-      setTimeout(() => resolve(null), 5000);
-    });
-  }
-  return null;
-};
-
-// Subscribe to push notifications
 export const subscribeToPushNotifications =
   async (): Promise<PushSubscription | null> => {
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
+    if (!isSupported() || !("PushManager" in window)) return null;
 
-        // Check if already subscribed
-        const existingSubscription =
-          await registration.pushManager.getSubscription();
-        if (existingSubscription) {
-          return existingSubscription;
-        }
-
-        // Request permission
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") {
-          console.log("Weather App: Notification permission denied");
-          return null;
-        }
-
-        // Subscribe to push
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          // applicationServerKey: import.meta.env.VITE_VAPID_PUBLIC_KEY // You'll need to set this
-        });
-
-        console.log("Weather App: Push subscription created");
-        return subscription;
-      } catch (error) {
-        console.error("Weather App: Push subscription failed:", error);
-        return null;
-      }
-    }
-    return null;
-  };
-
-// Unsubscribe from push notifications
-export const unsubscribeFromPushNotifications = async (): Promise<boolean> => {
-  if ("serviceWorker" in navigator) {
     try {
       const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
 
-      if (subscription) {
-        const result = await subscription.unsubscribe();
-        console.log("Weather App: Push unsubscribed:", result);
-        return result;
-      }
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) return existing;
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return null;
+
+      return await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        // applicationServerKey belongs here once a VAPID key exists; there is
+        // no backend yet, so subscriptions are local-only.
+      });
     } catch (error) {
-      console.error("Weather App: Push unsubscription failed:", error);
+      console.error("Weather App: Push subscription failed:", error);
+      return null;
     }
+  };
+
+export const unsubscribeFromPushNotifications = async (): Promise<boolean> => {
+  if (!isSupported()) return false;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      return await subscription.unsubscribe();
+    }
+  } catch (error) {
+    console.error("Weather App: Push unsubscription failed:", error);
   }
   return false;
 };
 
-// Check network status
-export const isOnline = (): boolean => {
-  return navigator.onLine;
-};
+// ---------------------------------------------------------------------------
+// Network status
+// ---------------------------------------------------------------------------
 
-// Listen for online/offline events
+export const isOnline = (): boolean =>
+  typeof navigator === "undefined" ? true : navigator.onLine;
+
 export const addNetworkListener = (
   callback: (online: boolean) => void
 ): (() => void) => {
@@ -198,29 +265,16 @@ export const addNetworkListener = (
   window.addEventListener("online", handleOnline);
   window.addEventListener("offline", handleOffline);
 
-  // Return cleanup function
   return () => {
     window.removeEventListener("online", handleOnline);
     window.removeEventListener("offline", handleOffline);
   };
 };
 
-// Notify user of app update
-const notifyUpdate = (): void => {
-  // You can customize this notification
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification("Weather App Update", {
-      body: "A new version of the Weather App is available. Refresh to update.",
-      icon: "/weather-icon-192.png",
-      tag: "app-update",
-    });
-  } else {
-    // Fallback to console log or custom UI notification
-    console.log("Weather App: New version available - please refresh");
-  }
-};
+// ---------------------------------------------------------------------------
+// Install prompt
+// ---------------------------------------------------------------------------
 
-// Install prompt handling for PWA
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{
@@ -230,36 +284,71 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-let deferredPrompt: BeforeInstallPromptEvent | null = null;
+type InstallListener = (canInstall: boolean) => void;
 
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
+const installListeners = new Set<InstallListener>();
+let installPromptBound = false;
+
+const announceInstallAvailability = (): void => {
+  installListeners.forEach((listener) => listener(deferredPrompt !== null));
+};
+
+/**
+ * Capture `beforeinstallprompt` before the browser discards it. Call this once,
+ * as early as possible — the event fires during load and is not replayed.
+ */
 export const setupInstallPrompt = (): void => {
-  window.addEventListener("beforeinstallprompt", (e) => {
-    // Prevent Chrome 67 and earlier from automatically showing the prompt
-    e.preventDefault();
-    // Stash the event so it can be triggered later
-    deferredPrompt = e as BeforeInstallPromptEvent;
-    console.log("Weather App: Install prompt available");
+  if (installPromptBound || typeof window === "undefined") return;
+  installPromptBound = true;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    // Suppress the browser's own mini-infobar; InstallPrompt asks instead.
+    event.preventDefault();
+    deferredPrompt = event as BeforeInstallPromptEvent;
+    announceInstallAvailability();
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredPrompt = null;
+    announceInstallAvailability();
   });
 };
 
-export const showInstallPrompt = async (): Promise<boolean> => {
-  if (deferredPrompt) {
-    // Show the prompt
-    await deferredPrompt.prompt();
-
-    // Wait for the user to respond to the prompt
-    const { outcome } = await deferredPrompt.userChoice;
-
-    console.log("Weather App: Install prompt outcome:", outcome);
-
-    // Clear the deferred prompt
-    deferredPrompt = null;
-
-    return outcome === "accepted";
-  }
-  return false;
+/** Subscribe to install availability. Returns the unsubscribe function. */
+export const onInstallAvailabilityChange = (
+  listener: InstallListener
+): (() => void) => {
+  installListeners.add(listener);
+  listener(deferredPrompt !== null);
+  return () => {
+    installListeners.delete(listener);
+  };
 };
 
-export const isInstallPromptAvailable = (): boolean => {
-  return deferredPrompt !== null;
+export const isInstallPromptAvailable = (): boolean => deferredPrompt !== null;
+
+/** True when the app is already running as an installed PWA. */
+export const isAppInstalled = (): boolean => {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: window-controls-overlay)").matches ||
+    // iOS Safari predates display-mode and reports this instead.
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+};
+
+export const showInstallPrompt = async (): Promise<boolean> => {
+  if (!deferredPrompt) return false;
+
+  await deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+
+  // The event is single-use whatever the user chose.
+  deferredPrompt = null;
+  announceInstallAvailability();
+
+  return outcome === "accepted";
 };

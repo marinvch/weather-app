@@ -1,166 +1,114 @@
-import Alert from "@mui/material/Alert";
-import AlertTitle from "@mui/material/AlertTitle";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import CardHeader from "@mui/material/CardHeader";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { AdviceCard } from "@/shared/ui/AdviceCard";
-import { QueryState } from "@/shared/ui/QueryState";
+import { DashboardShell } from "@/shared/ui/DashboardShell";
+import { HeroConditions } from "@/shared/ui/HeroConditions";
+import { formatSpeed, formatTemperature, unitsFor } from "@/shared/lib/units";
+import type { Coordinates } from "@/shared/types/weather";
 import { useAppSelector } from "@/store/hooks";
 import { useAgronomicData } from "@/features/agriculture/hooks/useAgronomicData";
-import {
-  frostRisk,
-  growingConditions,
-  severityColor,
-  soilMoistureCondition,
-  soilMoisturePercent,
-} from "@/features/agriculture/lib/conditions";
-import type { Coordinates } from "@/shared/types/weather";
+import { accumulateGdd } from "@/features/agriculture/lib/gdd";
+import { DegreeDayCard } from "@/features/agriculture/components/DegreeDayCard";
+import { GrowingTiles } from "@/features/agriculture/components/GrowingTiles";
+import { RiverSection } from "@/features/agriculture/components/RiverSection";
+import { SoilProfileSection } from "@/features/agriculture/components/SoilProfileSection";
+import { SprayWindowCard } from "@/features/agriculture/components/SprayWindowCard";
 
 interface AgriculturalDashboardProps {
   coordinates: Coordinates;
   locationName: string;
 }
 
-function StatTile({
-  label,
-  value,
-  detail,
-  color,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  color?: "success" | "warning" | "error";
-}) {
-  return (
-    <Card sx={{ flex: "1 1 200px", minWidth: 200 }}>
-      <CardContent sx={{ textAlign: "center" }}>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {label}
-        </Typography>
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 700,
-            my: 0.5,
-            color: color ? `${color}.main` : undefined,
-          }}
-        >
-          {value}
-        </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {detail}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-}
-
+/**
+ * The grower's lens: soil, frost, degree-days, the spray window and the river.
+ *
+ * Composition only. Every classification lives in `lib/`, and each section that
+ * needs data the agronomic query does not carry — the soil profile, the river —
+ * owns its own query and its own loading state. **The view is gated on one
+ * query, not on all of them**: the old dashboard awaited the soil request
+ * alongside the agronomic one, so a slow soil response blanked the frost
+ * warning too.
+ */
 export function AgriculturalDashboard({
   coordinates,
+  locationName,
 }: AgriculturalDashboardProps) {
   const units = useAppSelector((state) => state.userProfile.units);
+  const unitSet = unitsFor(units);
 
-  // Only the agronomic query gates the view. The soil query used to be awaited
-  // alongside it, so a slow soil response blocked everything.
-  const { data, isLoading, error, advice } = useAgronomicData(coordinates);
+  const { data, isLoading, isError, error, refetch, advice } =
+    useAgronomicData(coordinates);
 
   const current = data?.current;
+  const gdd = accumulateGdd(data?.daily, { base: 10 });
 
   return (
-    <QueryState
+    <DashboardShell
+      title="Growing conditions"
+      subtitle="Soil, frost, degree-days and the spray window"
+      locationName={locationName}
+      coordinates={coordinates}
       isLoading={isLoading}
+      isError={isError}
       error={error}
-      hasData={Boolean(current)}
-      loadingLabel="Loading growing conditions…"
-      errorTitle="Could not load agricultural data"
-      incompleteMessage="The forecast came back without soil readings for this point."
+      isEmpty={!current}
+      onRetry={() => void refetch()}
     >
-      {() => current && (
-        <Stack spacing={3}>
-          {(() => {
-            // The API answers in m³/m³; every threshold below is a percentage.
-            const soilMoisture = soilMoisturePercent(
-              current.soil_moisture_0_1cm ?? 0,
-            );
-            const soilTemp = current.soil_temperature_0cm ?? 0;
-            const soil = soilMoistureCondition(soilMoisture);
-            const frost = frostRisk(current.temperature_2m);
-            const growing = growingConditions(
-              current.temperature_2m,
-              current.relative_humidity_2m,
-              soilMoisture,
-            );
+      <Stack spacing={3}>
+        {current && (
+          <>
+            <HeroConditions
+              locationName={locationName}
+              temperature={current.temperature_2m}
+              weatherCode={current.weather_code}
+              isDay={Boolean(current.is_day)}
+              temperatureUnit={unitSet.temperature}
+              high={data?.daily?.temperature_2m_max?.[0]}
+              low={data?.daily?.temperature_2m_min?.[0]}
+              observedAt={current.time}
+              secondary={
+                <Typography variant="body2">
+                  Soil{" "}
+                  {formatTemperature(
+                    current.soil_temperature_0cm,
+                    unitSet.temperature,
+                  )}{" "}
+                  · {current.relative_humidity_2m}% RH ·{" "}
+                  {formatSpeed(current.wind_speed_10m, unitSet.speed)}
+                </Typography>
+              }
+            />
 
-            return (
-              <>
-                <Stack
-                  direction="row"
-                  sx={{ flexWrap: "wrap", gap: 2 }}
-                >
-                  <StatTile
-                    label="Air temperature"
-                    value={
-                      units === "metric"
-                        ? `${Math.round(current.temperature_2m)}°C`
-                        : `${Math.round((current.temperature_2m * 9) / 5 + 32)}°F`
-                    }
-                    detail={`Soil ${Math.round(soilTemp)}°C`}
-                  />
-                  <StatTile
-                    label="Soil moisture"
-                    value={`${soilMoisture.toFixed(1)}%`}
-                    detail={soil.text}
-                    color={severityColor(soil.severity)}
-                  />
-                  <StatTile
-                    label="Frost risk"
-                    value={frost.text}
-                    detail="Tonight"
-                    color={severityColor(frost.severity)}
-                  />
-                  <StatTile
-                    label="Growing conditions"
-                    value={growing.condition}
-                    detail="Overall"
-                    color={severityColor(growing.severity)}
-                  />
-                </Stack>
+            <GrowingTiles
+              current={current}
+              et0Mm={data?.daily?.et0_fao_evapotranspiration?.[0]}
+              gdd={gdd}
+              unitSet={unitSet}
+            />
 
-                <Card>
-                  <CardHeader
-                    title="What to do"
-                    slotProps={{ title: { variant: "h6", component: "h2" } }}
-                  />
-                  <CardContent>
-                    <Stack spacing={2}>
-                      <Alert severity={severityColor(soil.severity) === "success" ? "success" : "warning"}>
-                        <AlertTitle>Soil moisture</AlertTitle>
-                        {soil.advice}
-                      </Alert>
-                      <Alert severity={severityColor(frost.severity) === "success" ? "success" : "warning"}>
-                        <AlertTitle>Frost protection</AlertTitle>
-                        {frost.advice}
-                      </Alert>
-                      {(current.wind_speed_10m ?? 0) > 30 && (
-                        <Alert severity="warning">
-                          <AlertTitle>High wind</AlertTitle>
-                          Hold off on spraying — drift is likely at{" "}
-                          {Math.round(current.wind_speed_10m ?? 0)} km/h.
-                        </Alert>
-                      )}
-                    </Stack>
-                  </CardContent>
-                </Card>
-              </>
-            );
-          })()}
+            <SprayWindowCard
+              now={{
+                windSpeedKmh: current.wind_speed_10m,
+                // Current conditions carry no probability of precipitation, so
+                // the nearest hour's is used. Absent, the assessment says so
+                // rather than assuming dry.
+                precipitationProbability:
+                  data?.hourly?.precipitation_probability?.[0],
+                relativeHumidity: current.relative_humidity_2m,
+                temperatureC: current.temperature_2m,
+              }}
+              hourly={data?.hourly}
+            />
+          </>
+        )}
 
-          {advice && <AdviceCard advice={advice} title="Growing advice" />}
-        </Stack>
-      )}
-    </QueryState>
+        <DegreeDayCard accumulation={gdd} />
+
+        <SoilProfileSection coordinates={coordinates} />
+        <RiverSection coordinates={coordinates} />
+
+        {advice && <AdviceCard advice={advice} title="Growing advice" />}
+      </Stack>
+    </DashboardShell>
   );
 }

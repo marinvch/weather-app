@@ -1,12 +1,63 @@
 /**
  * Growing-condition readings for the agriculture dashboard's tiles.
  *
- * Extracted from the dashboard so they can be tested. Note these overlap with
- * `adviseAgriculture` in ./advice.ts, which derives its own soil condition and
- * frost risk on different thresholds — the same caveat as the mountain feature,
- * and the same unresolved decision. See features/AGENTS.md.
+ * ## ⚠️ These disagree with `adviseAgriculture`, and cannot be reconciled here
+ *
+ * The mountain feature had the same duplication and it *was* resolvable: its
+ * two avalanche scorers used the same four band names, so `avalancheReading`
+ * could compose them by taking the more severe without inventing a number.
+ *
+ * **These two cannot be composed that way, because the same word means a
+ * different thing on each side.**
+ *
+ * Frost — both are four bands, but the bands cover different temperatures:
+ *
+ * | Air temp | `frostRisk` (tile) | `adviseAgriculture` (card) |
+ * |---|---|---|
+ * | 6 °C, humidity > 80 | None | light |
+ * | 3 °C | Low | moderate |
+ * | 1 °C | Moderate | severe |
+ * | −1 °C | High | severe |
+ *
+ * The tile's "Moderate" is 0–2 °C and the card's "moderate" is 2–5 °C — the
+ * same word for adjacent, non-overlapping ranges. So a name-for-name
+ * correspondence is not merely unproven, it is false, and composing on it would
+ * assert something untrue about frost.
+ *
+ * Soil is worse. The tile's "Adequate" is 20–40 % volumetric moisture; the
+ * card's "adequate" is *above 80 %*, i.e. waterlogged. One word, opposite
+ * meanings, five bands against four, and the card also reads soil temperature
+ * which the tile does not.
+ *
+ * Reconciling either one therefore means deciding what the words should mean —
+ * whether 1 °C is "Moderate" frost or "severe" frost, and whether "adequate"
+ * soil is dryish or saturated. That is a decision for whoever owns the agronomy,
+ * not something to infer from the code. `conditions.test.ts` pins the conflict
+ * so neither side can be quietly "fixed" alone; when it is resolved, that block
+ * should fail and be replaced by an agreement test, exactly as the mountain
+ * one was.
+ *
+ * The old local `severityColor` helper is gone: colour now comes from the risk
+ * palette by way of `MetricTile`'s severity, which also carries the level in
+ * the accessible name and a left accent rule — a colour-only signal was never
+ * readable in sunlight or in greyscale.
  */
 
+import type { RiskLevel } from "@/shared/types/weather";
+
+/**
+ * This feature's own severity scale — **three** steps, not the shared
+ * `RiskLevel`'s four.
+ *
+ * Deliberately not migrated. There is no agronomic "severe" band here, and
+ * inventing one to fill the fourth slot would put readings in a band the
+ * thresholds never meant to produce. Conversion happens at the display
+ * boundary, through the named records at the foot of this file.
+ *
+ * Two other unrelated types are also called `Severity`: mountain's, which has
+ * four members and different words, and the numeric `0 | 1 | 2 | 3` exported by
+ * `@/shared/ui/MetricTile`. Importing more than one into a file needs an alias.
+ */
 export type Severity = "low" | "medium" | "high";
 
 export interface Reading {
@@ -108,11 +159,64 @@ export function growingConditions(
   return { condition: "Poor", severity: "high" };
 }
 
-/** MUI palette colour for a severity. */
-export function severityColor(
-  severity: Severity,
-): "success" | "warning" | "error" {
-  if (severity === "low") return "success";
-  if (severity === "medium") return "warning";
-  return "error";
+// ---------------------------------------------------------------------------
+// Display boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * This scale's words, mapped onto the shared display scale — **by name, one
+ * entry at a time, never by array index.**
+ *
+ * The scales are different lengths, so an index lookup would not even line up:
+ * "high" is this scale's top step, while `RISK_LEVELS[2]` still leaves "severe"
+ * above it. Written out, that difference is visible; as an index, it is not.
+ */
+const SEVERITY_TO_RISK_LEVEL: Record<Severity, RiskLevel> = {
+  low: "low",
+  medium: "moderate",
+  high: "high",
+};
+
+/** Convert at the call site, for `RiskGauge`. Defaults to the calmest step. */
+export function riskLevelFromSeverity(
+  severity: Severity | undefined,
+): RiskLevel {
+  return severity ? SEVERITY_TO_RISK_LEVEL[severity] : "low";
+}
+
+/**
+ * This scale's words as `MetricTile`'s numeric `severity` — again a named
+ * record, for the same reason.
+ */
+const SEVERITY_TO_TILE: Record<Severity, 0 | 1 | 2 | 3> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+};
+
+/** Convert at the call site, for `MetricTile`. Defaults to the calmest step. */
+export function tileSeverity(severity: Severity | undefined): 0 | 1 | 2 | 3 {
+  return severity ? SEVERITY_TO_TILE[severity] : 0;
+}
+
+/**
+ * A shared `RiskLevel` as `MetricTile`'s numeric severity.
+ *
+ * For the readings this feature authored on the shared scale directly — the
+ * spray verdict and the river trend, whose `risk` is assigned by hand in a
+ * named branch rather than derived from a domain union. Still a record, not an
+ * index.
+ */
+const RISK_LEVEL_TO_TILE: Record<RiskLevel, 0 | 1 | 2 | 3> = {
+  low: 0,
+  moderate: 1,
+  high: 2,
+  severe: 3,
+};
+
+/** Convert at the call site, for `MetricTile`. Defaults to the calmest step. */
+export function tileSeverityFromRiskLevel(
+  level: RiskLevel | undefined,
+): 0 | 1 | 2 | 3 {
+  return level ? RISK_LEVEL_TO_TILE[level] : 0;
 }

@@ -6,17 +6,14 @@ import {
   clearWeatherCache,
   requestBackgroundSync,
   isAppCached,
+  isAppInstalled,
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
   isInstallPromptAvailable,
+  onInstallAvailabilityChange,
   showInstallPrompt,
-} from '@/features/pwa/lib/serviceWorker';
-
-interface CacheStatus {
-  totalCached: number;
-  cacheSize: number;
-  lastUpdated: number;
-}
+  type CacheStatus,
+} from "@/features/pwa/lib/serviceWorker";
 
 interface OfflineHookReturn {
   // Network status
@@ -40,6 +37,7 @@ interface OfflineHookReturn {
 
   // PWA installation
   canInstall: boolean;
+  isInstalled: boolean;
   promptInstall: () => Promise<boolean>;
 
   // Utility functions
@@ -112,20 +110,10 @@ export const useOffline = (): OfflineHookReturn => {
     checkPushSubscription();
   }, []);
 
-  // PWA install prompt monitoring
-  useEffect(() => {
-    const checkInstallPrompt = () => {
-      setCanInstall(isInstallPromptAvailable());
-    };
-
-    window.addEventListener("beforeinstallprompt", checkInstallPrompt);
-    window.addEventListener("appinstalled", () => setCanInstall(false));
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", checkInstallPrompt);
-      window.removeEventListener("appinstalled", () => setCanInstall(false));
-    };
-  }, []);
+  // PWA install prompt monitoring. The event itself is captured once by
+  // setupInstallPrompt() at startup and is not replayed, so this subscribes to
+  // that captured state rather than listening for the event a second time.
+  useEffect(() => onInstallAvailabilityChange(setCanInstall), []);
 
   // Cache status
   const refreshCacheStatus = useCallback(async () => {
@@ -249,6 +237,7 @@ export const useOffline = (): OfflineHookReturn => {
 
     // PWA installation
     canInstall,
+    isInstalled: isAppInstalled(),
     promptInstall,
 
     // Utility functions

@@ -2,29 +2,28 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { Provider } from 'react-redux';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
 import Container from '@mui/material/Container';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import MyLocationIcon from '@mui/icons-material/MyLocation';
 import PlaceIcon from '@mui/icons-material/Place';
-import ShieldIcon from '@mui/icons-material/Shield';
 import { store } from '@/store/store';
-import { ProfileSelector } from '@/app/components/ProfileSelector';
-import { GeneralDashboard } from '@/features/forecast/components/GeneralDashboard';
-import { MarineDashboard } from '@/features/marine/components/MarineDashboard';
-import { MountainDashboard } from '@/features/mountain/components/MountainDashboard';
-import { AgriculturalDashboard } from '@/features/agriculture/components/AgriculturalDashboard';
-import { OfflineIndicator } from '@/features/pwa/components/OfflineIndicator';
+import { HeaderControls } from '@/app/components/HeaderControls';
+import { ThemeModeSync } from '@/app/components/ThemeModeControl';
+import { PROFILES, profileFromSearch } from '@/app/profiles';
+import { AirQualityPanel } from '@/features/airquality/components/AirQualityPanel';
+import { AlertsPanel } from '@/features/alerts/components/AlertsPanel';
+import { InstallPrompt } from '@/features/pwa/components/InstallPrompt';
+import { UpdatePrompt } from '@/features/pwa/components/UpdatePrompt';
 import { EmergencyInfo } from '@/features/location/components/EmergencyInfo';
+import { LocationSearch } from '@/features/location/components/LocationSearch';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { setLocation, setLocationName } from '@/store/slices/userProfileSlice';
+import { setLocation, setLocationName, setProfile } from '@/store/slices/userProfileSlice';
 import { registerServiceWorker, setupInstallPrompt } from '@/features/pwa/lib/serviceWorker';
 import { coordinatesKey, formatCoordinates } from '@/shared/lib/geo';
 import { getCurrentLocation, getLocationInfo, type LocationInfo } from '@/features/location/lib/geolocation';
+import { WeatherMap } from '@/shared/ui/WeatherMap';
 import type { Coordinates } from '@/shared/types/weather';
 
 // Medenrudnik, Burgas — the fallback when geolocation is denied or times out.
@@ -76,8 +75,25 @@ function WeatherApp() {
     }
   }, [dispatch]);
 
+  /**
+   * A place chosen deliberately — searched for, or picked from the saved list.
+   * The coordinate is the location; the name travels with it as display text
+   * and is kept as given rather than being re-resolved, because the user
+   * recognises the name they picked.
+   */
+  const selectPlace = useCallback(
+    (place: { latitude: number; longitude: number; name: string }) => {
+      dispatch(setLocation({ latitude: place.latitude, longitude: place.longitude }));
+      dispatch(setLocationName(place.name));
+      setLocationError(null);
+    },
+    [dispatch],
+  );
+
   useEffect(() => {
-    // Auto-request location on first load.
+    // Auto-request location on first load. A location restored from the last
+    // visit counts as having one, so a returning user is not re-prompted for
+    // the geolocation permission before they have asked for anything.
     if (!location) {
       requestLocation();
       return;
@@ -97,6 +113,14 @@ function WeatherApp() {
   }, [location, requestLocation]);
 
   useEffect(() => {
+    // `?profile=marine` — the PWA shortcuts in public/manifest.json land here.
+    // Read once on boot, after the persisted profile, so a shortcut wins over
+    // whatever the last visit left behind. An unrecognised value is ignored.
+    const requested = profileFromSearch(window.location.search);
+    if (requested) dispatch(setProfile(requested));
+  }, [dispatch]);
+
+  useEffect(() => {
     const initializeServiceWorker = async () => {
       try {
         await registerServiceWorker();
@@ -109,83 +133,60 @@ function WeatherApp() {
     initializeServiceWorker();
   }, []);
 
-  const renderDashboard = () => {
-    const props = {
-      coordinates: currentCoords,
-      locationName: currentLocationName,
-    };
-
-    switch (profile) {
-      case 'marine':
-        return <MarineDashboard {...props} />;
-      case 'mountain':
-        return <MountainDashboard {...props} />;
-      case 'agriculture':
-        return <AgriculturalDashboard {...props} />;
-      default:
-        return <GeneralDashboard {...props} />;
-    }
-  };
+  // The profile registry is the single source of truth: one entry per persona
+  // carries its label, its icon and its dashboard, so there is no switch here
+  // to fall out of step with the selector.
+  const { Dashboard } = PROFILES[profile];
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+      <ThemeModeSync />
+
       <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ flexWrap: 'wrap', gap: 2, py: 1 }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', flexGrow: 1 }}>
-              <Typography variant="h6" component="h1" sx={{ fontWeight: 700 }}>
+          <Toolbar disableGutters sx={{ gap: 1, py: 1, minHeight: { xs: 56 } }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', flexGrow: 1, minWidth: 0 }}>
+              <Typography variant="h6" component="h1" sx={{ fontWeight: 700 }} noWrap>
                 Weather Pro
               </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', display: { xs: 'none', lg: 'block' } }}>
                 Weather that tells you what to do
               </Typography>
             </Stack>
 
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-              <OfflineIndicator />
-              <ProfileSelector />
-
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={requestLocation}
-                disabled={isLoadingLocation}
-                startIcon={
-                  isLoadingLocation ? <CircularProgress size={16} /> : <MyLocationIcon />
-                }
-              >
-                {isLoadingLocation ? 'Locating…' : 'Use my location'}
-              </Button>
-
-              {locationInfo && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  startIcon={<ShieldIcon />}
-                  onClick={() => setShowEmergencyInfo((open) => !open)}
-                >
-                  Emergency
-                </Button>
-              )}
-            </Stack>
+            <HeaderControls
+              coordinates={currentCoords}
+              locationName={currentLocationName}
+              onSelectFavorite={selectPlace}
+              onRequestLocation={requestLocation}
+              isLoadingLocation={isLoadingLocation}
+              emergencyAvailable={Boolean(locationInfo)}
+              emergencyOpen={showEmergencyInfo}
+              onToggleEmergency={() => setShowEmergencyInfo((open) => !open)}
+            />
           </Toolbar>
 
           <Stack
-            direction="row"
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={1}
-            sx={{ alignItems: 'center', pb: 1.5, flexWrap: 'wrap' }}
+            sx={{ alignItems: { xs: 'stretch', sm: 'center' }, pb: 1.5 }}
           >
-            <PlaceIcon fontSize="small" sx={{ color: 'text.secondary' }} />
-            <Typography variant="body2">{currentLocationName}</Typography>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {formatCoordinates(currentCoords)}
-            </Typography>
-            {locationError && (
-              <Typography variant="caption" sx={{ color: 'error.main' }}>
-                ({locationError})
+            <Box sx={{ width: { xs: '100%', sm: 320 }, flexShrink: 0 }}>
+              <LocationSearch onSelect={selectPlace} fullWidth />
+            </Box>
+
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minWidth: 0, flexWrap: 'wrap' }}>
+              <PlaceIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              <Typography variant="body2" noWrap>{currentLocationName}</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {formatCoordinates(currentCoords)}
               </Typography>
-            )}
+              {locationError && (
+                <Typography variant="caption" sx={{ color: 'error.main' }}>
+                  ({locationError})
+                </Typography>
+              )}
+            </Stack>
           </Stack>
         </Container>
       </AppBar>
@@ -201,7 +202,30 @@ function WeatherApp() {
             />
           )}
 
-          {renderDashboard()}
+          {/* Alerts first, above everything: a severe-weather warning below
+              the fold is not a warning. Passing coordinates is what makes the
+              panel derive alerts and fill the slice — without them it only
+              reads a slice nothing writes to. */}
+          <AlertsPanel coordinates={currentCoords} />
+
+          {/* The map is part of the page, not a disclosure behind a button. It
+              is the graphical form of the place named in the header, so it sits
+              with the location context, above the readings it describes. */}
+          <WeatherMap
+            coordinates={currentCoords}
+            locationName={currentLocationName}
+            onLocationSelect={(coordinates, name) =>
+              selectPlace({ ...coordinates, name })
+            }
+          />
+
+          <Dashboard coordinates={currentCoords} locationName={currentLocationName} />
+
+          {/* Air quality is persona-neutral, so it is mounted for all four
+              lenses rather than scoped to one dashboard: UV is a working
+              exposure number for mariners and mountaineers on open ground, and
+              pollen is agronomic data. */}
+          <AirQualityPanel coordinates={currentCoords} />
         </Stack>
       </Container>
 
@@ -213,6 +237,11 @@ function WeatherApp() {
           </Typography>
         </Container>
       </Box>
+
+      {/* Both render nothing until the browser says there is something to
+          offer, so they are mounted unconditionally rather than gated. */}
+      <UpdatePrompt />
+      <InstallPrompt />
     </Box>
   );
 }

@@ -4,6 +4,59 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icons/weather-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!--
+      Colour scheme, before first paint.
+
+      theme.ts sets `colorSchemeSelector: "data-mui-color-scheme"`, so the dark
+      palette is applied by an attribute on <html> that only exists once React
+      has mounted. Without this script a user whose saved mode is dark gets a
+      flash of the light theme on every cold load.
+
+      Blocking and inline on purpose: `defer`, `async` or a module script all
+      run after the document is parsed, which is after the browser has painted.
+
+      The key names and the attribute mirror what MUI itself reads and writes
+      (`@mui/material/InitColorSchemeScript`'s defaultConfig: mode in
+      `mui-mode`, scheme names in `mui-color-scheme-light` / `-dark`). A
+      mismatch here fails silently and looks exactly like no fix at all, so
+      src/features/pwa/lib/initColorScheme.test.ts asserts this script against
+      those constants and executes it.
+    -->
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem("mui-mode") || "system";
+          var light = localStorage.getItem("mui-color-scheme-light") || "light";
+          var dark = localStorage.getItem("mui-color-scheme-dark") || "dark";
+          var colorScheme = "";
+
+          if (mode === "system") {
+            colorScheme = window.matchMedia("(prefers-color-scheme: dark)")
+              .matches
+              ? dark
+              : light;
+          } else if (mode === "light") {
+            colorScheme = light;
+          } else if (mode === "dark") {
+            colorScheme = dark;
+          }
+
+          if (colorScheme) {
+            document.documentElement.setAttribute(
+              "data-mui-color-scheme",
+              colorScheme
+            );
+          }
+        } catch (e) {
+          // localStorage throws in some privacy modes and matchMedia is absent
+          // in very old browsers. An exception in a blocking head script would
+          // white-screen the app, so swallow it: MUI then applies the system
+          // preference itself once it mounts.
+        }
+      })();
+    </script>
+
     <title>Weather Pro - Advanced Weather Intelligence</title>
 
     <!-- PWA Manifest -->
@@ -19,22 +72,26 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Weather Pro" />
 
-    <!-- Apple touch icons -->
-    <link rel="apple-touch-icon" href="/weather-icon-152.png" />
-    <link rel="apple-touch-icon" sizes="72x72" href="/weather-icon-72.png" />
-    <link rel="apple-touch-icon" sizes="96x96" href="/weather-icon-96.png" />
-    <link rel="apple-touch-icon" sizes="128x128" href="/weather-icon-128.png" />
-    <link rel="apple-touch-icon" sizes="144x144" href="/weather-icon-144.png" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/weather-icon-152.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/weather-icon-192.png" />
+    <!--
+      Apple touch icon. Only the two SVGs in public/icons exist; the seven
+      /weather-icon-*.png paths that used to be listed here were never in the
+      repo, so every one of them 404'd. Safari would prefer a PNG here — add
+      one to public/icons and reference it, but do not reference a file that
+      is not there.
+    -->
+    <link rel="apple-touch-icon" href="/icons/weather-icon.svg" />
 
     <!-- Microsoft tiles -->
     <meta name="msapplication-TileColor" content="#0ea5e9" />
-    <meta name="msapplication-TileImage" content="/weather-icon-144.png" />
+    <meta name="msapplication-TileImage" content="/icons/weather-icon.svg" />
 
-    <!-- Preconnect to weather APIs for better performance -->
+    <!-- Preconnect to the hosts the first render actually hits -->
     <link rel="preconnect" href="https://api.open-meteo.com" />
-    <link rel="preconnect" href="https://marine-api.open-meteo.com" />
+    <link rel="dns-prefetch" href="https://marine-api.open-meteo.com" />
+    <link rel="dns-prefetch" href="https://archive-api.open-meteo.com" />
+    <link rel="dns-prefetch" href="https://air-quality-api.open-meteo.com" />
+    <link rel="dns-prefetch" href="https://geocoding-api.open-meteo.com" />
+    <link rel="dns-prefetch" href="https://flood-api.open-meteo.com" />
     <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org" />
   </head>
   <body>

@@ -1,219 +1,153 @@
-import Alert from "@mui/material/Alert";
-import AlertTitle from "@mui/material/AlertTitle";
-import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardHeader from "@mui/material/CardHeader";
-import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { AdviceCard } from "@/shared/ui/AdviceCard";
-import { QueryState } from "@/shared/ui/QueryState";
+import { DashboardShell } from "@/shared/ui/DashboardShell";
+import { HeroConditions } from "@/shared/ui/HeroConditions";
+import { RiskGauge } from "@/shared/ui/RiskGauge";
+import { degreesToCardinal, formatSpeed, unitsFor } from "@/shared/lib/units";
+import type { Coordinates } from "@/shared/types/weather";
 import { useAppSelector } from "@/store/hooks";
 import { useMountainForecast } from "@/features/mountain/hooks/useMountainForecast";
 import {
-  avalancheRisk,
-  severityColor,
-  visibilityCondition,
-  windCondition,
+  atCurrentHour,
+  avalancheReading,
+  freezingLevelReading,
+  riskLevelFromSeverity,
+  snowDepthReading,
+  windChill,
+  windChillApplies,
 } from "@/features/mountain/lib/conditions";
-import type { Coordinates } from "@/shared/types/weather";
+import { AltitudeTiles } from "@/features/mountain/components/AltitudeTiles";
+import { AscentWindProfileCard } from "@/features/mountain/components/AscentWindProfileCard";
 
 interface MountainDashboardProps {
   coordinates: Coordinates;
   locationName: string;
 }
 
-function StatTile({
-  label,
-  value,
-  detail,
-  color,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  color?: "success" | "warning" | "error";
-}) {
-  return (
-    <Card sx={{ flex: "1 1 220px", minWidth: 220 }}>
-      <CardContent sx={{ textAlign: "center" }}>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {label}
-        </Typography>
-        <Typography
-          variant="h4"
-          sx={{ fontWeight: 700, my: 0.5, color: color ? `${color}.main` : undefined }}
-        >
-          {value}
-        </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {detail}
-        </Typography>
-      </CardContent>
-    </Card>
-  );
-}
-
-/** One altitude band in the wind table. */
-function WindRow({
-  label,
-  sublabel,
-  speed,
-  units,
-}: {
-  label: string;
-  sublabel: string;
-  speed: number | undefined;
-  units: "metric" | "imperial";
-}) {
-  // 80 m and 120 m winds are optional in the Open-Meteo response, so "missing"
-  // and "calm" must not look the same.
-  if (speed === undefined) {
-    return (
-      <Stack
-        direction="row"
-        sx={{ alignItems: "center", justifyContent: "space-between", py: 1.5 }}
-      >
-        <Box>
-          <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {sublabel}
-          </Typography>
-        </Box>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          Not reported here
-        </Typography>
-      </Stack>
-    );
-  }
-
-  const condition = windCondition(speed);
-  const display =
-    units === "metric"
-      ? `${Math.round(speed)} km/h`
-      : `${Math.round(speed * 0.621371)} mph`;
-
-  return (
-    <Stack
-      direction="row"
-      sx={{ alignItems: "center", justifyContent: "space-between", py: 1.5 }}
-    >
-      <Box>
-        <Typography sx={{ fontWeight: 500 }}>{label}</Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-          {sublabel}
-        </Typography>
-      </Box>
-      <Stack spacing={0.5} sx={{ alignItems: "flex-end" }}>
-        <Typography sx={{ fontWeight: 600 }}>{display}</Typography>
-        <Chip
-          size="small"
-          label={condition.text}
-          color={severityColor(condition.severity)}
-        />
-      </Stack>
-    </Stack>
-  );
-}
-
-export function MountainDashboard({ coordinates }: MountainDashboardProps) {
+/**
+ * The mountaineer's lens: how high the ground is, where the freezing level
+ * sits, how much more wind the ridge gets than the valley, and how long
+ * exposed skin lasts in it.
+ *
+ * Composition only. Loading, failure and the empty payload belong to
+ * `DashboardShell`; every classification belongs to `lib/conditions`.
+ */
+export function MountainDashboard({
+  coordinates,
+  locationName,
+}: MountainDashboardProps) {
   const units = useAppSelector((state) => state.userProfile.units);
-  const { data, isLoading, error, advice } = useMountainForecast(coordinates);
+  const unitSet = unitsFor(units);
+
+  const { data, isLoading, isError, error, refetch, advice } =
+    useMountainForecast(coordinates);
 
   const current = data?.current;
 
+  // NaN when there is no payload. The shell renders its empty state instead of
+  // the children, so these are only read on the ready path.
+  const temp = current?.temperature_2m ?? Number.NaN;
+  const surfaceWind = current?.wind_speed_10m ?? Number.NaN;
+
+  const chill = windChill(temp, surfaceWind);
+  const chillApplies = windChillApplies(temp, surfaceWind);
+  const avalanche = avalancheReading(temp, surfaceWind, current?.weather_code ?? 0);
+
+  const freezing = freezingLevelReading(
+    atCurrentHour(data?.hourly?.freezing_level_height),
+    data?.elevation,
+  );
+  const snow = snowDepthReading(atCurrentHour(data?.hourly?.snow_depth));
+
   return (
-    <QueryState
+    <DashboardShell
+      title="Mountain conditions"
+      subtitle={
+        data?.elevation != null
+          ? `Model terrain at ${Math.round(data.elevation)} m above sea level`
+          : "Ascent planning — wind at altitude, freezing level, snowpack"
+      }
+      locationName={locationName}
+      coordinates={coordinates}
       isLoading={isLoading}
+      isError={isError}
       error={error}
-      hasData={Boolean(current)}
-      loadingLabel="Loading mountain conditions…"
-      errorTitle="Could not load mountain conditions"
-      incompleteMessage="The forecast came back without current conditions for this point."
+      isEmpty={!current}
+      onRetry={() => void refetch()}
     >
-      {() => current && (
-        <Stack spacing={3}>
-          {(() => {
-            const wind = windCondition(current.wind_speed_10m ?? 0);
-            const visibility = visibilityCondition(current.weather_code);
-            const avalanche = avalancheRisk(
-              current.temperature_2m,
-              current.wind_speed_10m ?? 0,
-              current.weather_code,
-            );
+      <Stack spacing={3}>
+        {current && (
+          <HeroConditions
+            locationName={locationName}
+            temperature={current.temperature_2m}
+            apparentTemperature={
+              chillApplies ? chill : current.apparent_temperature
+            }
+            weatherCode={current.weather_code}
+            isDay={Boolean(current.is_day)}
+            temperatureUnit={unitSet.temperature}
+            observedAt={current.time}
+            secondary={
+              <Typography variant="body2">
+                {formatSpeed(surfaceWind, unitSet.speed)} from the{" "}
+                {degreesToCardinal(current.wind_direction_10m)}
+                {data?.elevation != null && ` · ${Math.round(data.elevation)} m`}
+              </Typography>
+            }
+          />
+        )}
 
-            return (
-              <>
-                <Alert severity={avalanche.severity === "low" ? "success" : "warning"}>
-                  <AlertTitle>Avalanche risk: {avalanche.level}</AlertTitle>
-                  {avalanche.description}
-                </Alert>
+        <RiskGauge
+          level={riskLevelFromSeverity(avalanche.severity)}
+          label={`Avalanche risk: ${avalanche.level}`}
+          description={`${avalanche.description}. This is a points-based reading from temperature, wind and precipitation — it is not an official avalanche bulletin, and it does not know the aspect or the slope angle of your route.`}
+        />
 
-                <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 2 }}>
-                  <StatTile
-                    label="Temperature"
-                    value={
-                      units === "metric"
-                        ? `${Math.round(current.temperature_2m)}°C`
-                        : `${Math.round((current.temperature_2m * 9) / 5 + 32)}°F`
-                    }
-                    detail={`Feels like ${Math.round(current.temperature_2m - 2)}°`}
-                  />
-                  <StatTile
-                    label="Wind (surface)"
-                    value={
-                      units === "metric"
-                        ? `${Math.round(current.wind_speed_10m ?? 0)} km/h`
-                        : `${Math.round((current.wind_speed_10m ?? 0) * 0.621371)} mph`
-                    }
-                    detail={wind.text}
-                    color={severityColor(wind.severity)}
-                  />
-                  <StatTile
-                    label="Visibility"
-                    value={visibility.text}
-                    detail={visibility.cause}
-                    color={severityColor(visibility.severity)}
-                  />
-                </Stack>
-              </>
-            );
-          })()}
+        <AltitudeTiles
+          elevationMetres={data?.elevation}
+          temperatureC={temp}
+          windKmh={surfaceWind}
+          weatherCode={current?.weather_code ?? 0}
+          freezing={freezing}
+          snow={snow}
+          unitSet={unitSet}
+        />
 
-          {advice && (
-            <AdviceCard advice={advice} title="Preparing for the ascent" />
-          )}
+        <AscentWindProfileCard current={current ?? {}} unitSet={unitSet} />
 
+        {freezing && (
           <Card>
             <CardHeader
-              title="Wind at altitude"
-              subheader="Ridge exposure is not visible in the surface figure"
+              title="Freezing level and snowpack"
               slotProps={{ title: { variant: "h6", component: "h2" } }}
             />
             <CardContent>
-              <WindRow
-                label="Surface (10 m)"
-                sublabel="Base conditions"
-                speed={current.wind_speed_10m}
-                units={units}
-              />
-              <WindRow
-                label="Mid-altitude (80 m)"
-                sublabel="Ridge conditions"
-                speed={current.wind_speed_80m}
-                units={units}
-              />
-              <WindRow
-                label="High altitude (120 m)"
-                sublabel="Summit conditions"
-                speed={current.wind_speed_120m}
-                units={units}
-              />
+              <Stack spacing={1.5}>
+                <Typography variant="body2">
+                  0°C isotherm at {Math.round(freezing.heightMetres)} m —{" "}
+                  {freezing.text}.
+                </Typography>
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  {freezing.advice}
+                </Typography>
+                {snow && (
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    {Math.round(snow.centimetres)} cm lying — {snow.advice}
+                  </Typography>
+                )}
+              </Stack>
             </CardContent>
           </Card>
-        </Stack>
-      )}
-    </QueryState>
+        )}
+
+        {advice && (
+          <AdviceCard advice={advice} title="Preparing for the ascent" />
+        )}
+      </Stack>
+    </DashboardShell>
   );
 }

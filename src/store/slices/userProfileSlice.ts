@@ -6,7 +6,11 @@ import type {
   UserPreferences,
 } from '@/shared/types/weather';
 
-const initialState: UserPreferences = {
+/**
+ * Exported so the persistence layer can fall back to it field by field when a
+ * stored value fails validation.
+ */
+export const initialUserProfileState: UserPreferences = {
   profile: "general",
   units: "metric",
   language: "en",
@@ -17,7 +21,7 @@ const initialState: UserPreferences = {
 
 export const userProfileSlice = createSlice({
   name: "userProfile",
-  initialState,
+  initialState: initialUserProfileState,
   reducers: {
     setProfile: (state, action: PayloadAction<UserProfile>) => {
       state.profile = action.payload;
