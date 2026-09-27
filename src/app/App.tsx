@@ -24,6 +24,7 @@ import { registerServiceWorker, setupInstallPrompt } from '@/features/pwa/lib/se
 import { coordinatesKey, formatCoordinates } from '@/shared/lib/geo';
 import { getCurrentLocation, getLocationInfo, type LocationInfo } from '@/features/location/lib/geolocation';
 import { WeatherMap } from '@/shared/ui/WeatherMap';
+import { SectionErrorBoundary } from '@/shared/ui/SectionErrorBoundary';
 import type { Coordinates } from '@/shared/types/weather';
 
 // Medenrudnik, Burgas — the fallback when geolocation is denied or times out.
@@ -138,6 +139,10 @@ function WeatherApp() {
   // to fall out of step with the selector.
   const { Dashboard } = PROFILES[profile];
 
+  // A new place or a new lens is a fresh start for every section: a panel
+  // that crashed on the last coordinate gets another chance on this one.
+  const resetKeys = [coordinatesKey(currentCoords), profile];
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <ThemeModeSync />
@@ -194,38 +199,48 @@ function WeatherApp() {
       <Container maxWidth="lg" component="main" sx={{ flexGrow: 1, py: 3 }}>
         <Stack spacing={3}>
           {showEmergencyInfo && locationInfo && (
-            <EmergencyInfo
-              emergencyNumbers={locationInfo.emergencyNumbers}
-              profile={profile}
-              locationName={locationInfo.displayName}
-              countryCode={locationInfo.countryCode}
-            />
+            <SectionErrorBoundary section="Emergency numbers" resetKeys={resetKeys}>
+              <EmergencyInfo
+                emergencyNumbers={locationInfo.emergencyNumbers}
+                profile={profile}
+                locationName={locationInfo.displayName}
+                countryCode={locationInfo.countryCode}
+              />
+            </SectionErrorBoundary>
           )}
 
           {/* Alerts first, above everything: a severe-weather warning below
               the fold is not a warning. Passing coordinates is what makes the
               panel derive alerts and fill the slice — without them it only
               reads a slice nothing writes to. */}
-          <AlertsPanel coordinates={currentCoords} />
+          <SectionErrorBoundary section="Alerts" resetKeys={resetKeys}>
+            <AlertsPanel coordinates={currentCoords} />
+          </SectionErrorBoundary>
 
           {/* The map is part of the page, not a disclosure behind a button. It
               is the graphical form of the place named in the header, so it sits
               with the location context, above the readings it describes. */}
-          <WeatherMap
-            coordinates={currentCoords}
-            locationName={currentLocationName}
-            onLocationSelect={(coordinates, name) =>
-              selectPlace({ ...coordinates, name })
-            }
-          />
+          <SectionErrorBoundary section="Weather map" resetKeys={resetKeys}>
+            <WeatherMap
+              coordinates={currentCoords}
+              locationName={currentLocationName}
+              onLocationSelect={(coordinates, name) =>
+                selectPlace({ ...coordinates, name })
+              }
+            />
+          </SectionErrorBoundary>
 
-          <Dashboard coordinates={currentCoords} locationName={currentLocationName} />
+          <SectionErrorBoundary section={PROFILES[profile].label} resetKeys={resetKeys}>
+            <Dashboard coordinates={currentCoords} locationName={currentLocationName} />
+          </SectionErrorBoundary>
 
           {/* Air quality is persona-neutral, so it is mounted for all four
               lenses rather than scoped to one dashboard: UV is a working
               exposure number for mariners and mountaineers on open ground, and
               pollen is agronomic data. */}
-          <AirQualityPanel coordinates={currentCoords} />
+          <SectionErrorBoundary section="Air quality" resetKeys={resetKeys}>
+            <AirQualityPanel coordinates={currentCoords} />
+          </SectionErrorBoundary>
         </Stack>
       </Container>
 
@@ -249,7 +264,11 @@ function WeatherApp() {
 function App() {
   return (
     <Provider store={store}>
-      <WeatherApp />
+      {/* Last resort, for a crash in the header itself. Every section below
+          it has its own boundary, so this should not normally be what catches. */}
+      <SectionErrorBoundary section="Weather Pro">
+        <WeatherApp />
+      </SectionErrorBoundary>
     </Provider>
   );
 }
