@@ -244,8 +244,7 @@ describe("getCurrentLocation", () => {
     const request = getCurrentLocation();
     calls[0].failure(positionError(code));
 
-    const error = await request.catch((e: Error) => e);
-    expect(error.message).toMatch(pattern);
-    expect(error.message).not.toContain("raw browser text");
+    await expect(request).rejects.toThrow(pattern);
+    await expect(request).rejects.not.toThrow("raw browser text");
   });
 });
