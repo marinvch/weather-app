@@ -1,4 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { createBaseQuery } from "./baseQuery";
 
 /**
  * Base API for `flood-api.open-meteo.com` — transport only.
@@ -20,9 +21,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
  */
 export const floodApi = createApi({
   reducerPath: "flood",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "https://flood-api.open-meteo.com/v1/",
-  }),
+  baseQuery: createBaseQuery("https://flood-api.open-meteo.com/v1/"),
   tagTypes: ["Flood"],
   endpoints: () => ({}),
 });

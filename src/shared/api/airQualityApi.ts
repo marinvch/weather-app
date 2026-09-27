@@ -1,4 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { createBaseQuery } from "./baseQuery";
 
 /**
  * Base API for `air-quality-api.open-meteo.com` — transport only.
@@ -23,9 +24,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
  */
 export const airQualityApi = createApi({
   reducerPath: "airQuality",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "https://air-quality-api.open-meteo.com/v1/",
-  }),
+  baseQuery: createBaseQuery("https://air-quality-api.open-meteo.com/v1/"),
   tagTypes: ["AirQuality", "Pollen"],
   endpoints: () => ({}),
 });
