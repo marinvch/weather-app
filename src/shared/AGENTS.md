@@ -49,7 +49,9 @@ owned by whoever needs them.
 Every base API is built with `createBaseQuery(baseUrl)` from `baseQuery.ts`, never a bare
 `fetchBaseQuery`: it adds a 12 s timeout and up to two retries, only on transient failures (network,
 timeout, 5xx, 429). A bare `fetchBaseQuery` has no timeout, so a hung request shows a skeleton
-forever.
+forever. Never pass an option to RTK's `retry` as an explicit `undefined`: it merges
+`{ backoff: defaultBackoff, ...yours }`, so `backoff: undefined` erases the default and every retry
+throws. Tests that inject a `backoff` cannot see this — `baseQuery.test.ts` keeps one that does not.
 
 Nothing here derives advice. Rules live in the feature that owns the persona
 (`src/features/*/lib/advice.ts`), because two personas score the same reading differently.
