@@ -78,10 +78,12 @@ npm run typecheck # tsc -b --force
 No credentials needed. Open-Meteo and Nominatim are keyless. `.env` is untracked and unused — do
 not invent `VITE_*` variables without adding them there first.
 
-Tests run on **Vitest + jsdom + Testing Library**. Coverage is partial and deliberate: the pure
-logic is covered (emergency-number lookup and reverse-geocode fallbacks, the two analysis scorers,
-WeatherCard's unit conversions), the dashboards and the store are not. A green suite means those
-three areas still hold — it is not yet evidence the app works.
+Tests run on **Vitest + jsdom + Testing Library**. What is covered: every feature's pure `lib/`
+(advice, scoring, parsing, geolocation), the shared libs and transport (`baseQuery`, units, geo,
+map tiles), the shared UI atoms and `SectionErrorBoundary`, the profile registry, and store
+persistence. What is not: the four dashboards and `App` as rendered wholes. A green suite is
+strong evidence for the logic and weak evidence the page works — load it before claiming a UI
+change is done.
 
 ## Invariants
 
