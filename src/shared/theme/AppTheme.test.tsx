@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import Button from "@mui/material/Button";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, useColorScheme } from "@mui/material/styles";
 import AppTheme from "./AppTheme";
 import theme from "./theme";
 
@@ -61,5 +61,45 @@ describe("AppTheme", () => {
     // the palette is only reachable from inside MUI's own styling engine.
     expect(theme.vars).toBeDefined();
     expect(theme.vars?.palette.primary.main).toContain("--mui-palette-primary");
+  });
+
+  it("names a colour-scheme selector, so a manual theme toggle is possible", () => {
+    // With both light and dark declared, MUI defaults colorSchemeSelector to
+    // 'media' and emits only @media (prefers-color-scheme: dark). On that
+    // default the scheme follows the OS and nothing else.
+    expect(theme.colorSchemeSelector).toBe("data-mui-color-scheme");
+    expect(theme.colorSchemeSelector).not.toBe("media");
+  });
+
+  it("writes the scheme to the DOM when the mode is set", () => {
+    // The regression this guards fails SILENTLY: on 'media', setMode updates
+    // MUI's internal state and useColorScheme reports the mode you asked for,
+    // but nothing reaches the document and the colours never move. Asserting on
+    // the hook's return value would pass in exactly that broken case, so this
+    // reads the element the CSS variables are actually scoped to.
+    function ModeSetter() {
+      const { setMode } = useColorScheme();
+      return (
+        <button type="button" onClick={() => setMode("dark")}>
+          Dark
+        </button>
+      );
+    }
+
+    render(
+      <AppTheme>
+        <ModeSetter />
+      </AppTheme>,
+    );
+
+    expect(
+      document.documentElement.getAttribute("data-mui-color-scheme"),
+    ).not.toBe("dark");
+
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+
+    expect(document.documentElement.getAttribute("data-mui-color-scheme")).toBe(
+      "dark",
+    );
   });
 });

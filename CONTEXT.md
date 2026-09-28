@@ -36,11 +36,27 @@ _Avoid_: using "warning" for all three.
 
 ## Location
 
-Always a `Coordinates` pair (`latitude`/`longitude`) — the canonical form everything downstream
-consumes. The human-readable string is a separate value, `locationName`, resolved from Nominatim
-by `@/features/location/lib/geolocation`. They travel together but are never the same field.
+Always a `Coordinates` pair (`latitude`/`longitude`) in **WGS 84** — the canonical form everything
+downstream consumes. The human-readable string is a separate value, `locationName`, resolved from
+Nominatim by `@/features/location/lib/geolocation`. They travel together but are never the same
+field.
 
 _Avoid_: passing a place name where a Location is expected; no API here geocodes for you.
+
+---
+
+## WGS 84
+
+The app's one coordinate reference system, for everything, always: latitude and longitude in
+decimal degrees on the WGS 84 datum (EPSG:4326), in that axis order. Every source already speaks
+it — the browser Geolocation API, all three Open-Meteo hosts, Nominatim, and Leaflet's `LatLng` —
+so no coordinate is ever converted anywhere in the app. `@/shared/lib/geo` holds the constant, the
+range checks, `normalizeCoordinates` and the one display format.
+
+_Avoid_: "EPSG:3857", "Web Mercator", "projected". Leaflet renders its tiles in Web Mercator, but
+that projection lives entirely inside Leaflet and never touches a value we hold — a function that
+converts coordinates in this codebase is a bug, not a feature. Also avoid GeoJSON's `[lon, lat]`
+ordering: if GeoJSON is ever read or written, it swaps at that boundary and nowhere else.
 
 ---
 

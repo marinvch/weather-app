@@ -1,146 +1,89 @@
 {
+  "id": "/",
   "name": "Weather Pro - Advanced Weather Intelligence",
   "short_name": "Weather Pro",
-  "description": "Multi-profile weather application with AI-powered intelligent alerts, historical data analysis, and offline support",
-  "version": "1.0.0",
+  "description": "Weather for four audiences — general, marine, mountain and agricultural — with threshold alerts, historical comparison and offline access to forecasts you have already viewed.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#0ea5e9",
-  "orientation": "portrait-primary",
-  "categories": ["weather", "lifestyle", "productivity"],
   "lang": "en",
-  "scope": "/",
-  "id": "weather-pro-app",
+  "dir": "ltr",
+  "categories": ["weather", "navigation", "productivity"],
   "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "/icons/weather-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "72x72",
-      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "96x96",
+      "src": "/icons/weather-icon-maskable.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "128x128",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "144x144",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "152x152",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "384x384",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/weather-icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-desktop.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow"
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
-      "name": "General Weather",
+      "name": "General weather",
       "short_name": "General",
-      "description": "View general weather forecast",
+      "description": "Forecast for the general public",
       "url": "/?profile=general",
       "icons": [
         {
           "src": "/icons/weather-icon.svg",
-          "sizes": "96x96"
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     },
     {
-      "name": "Marine Weather",
+      "name": "Marine weather",
       "short_name": "Marine",
-      "description": "View marine weather conditions",
+      "description": "Sea state, waves and whether to go out",
       "url": "/?profile=marine",
       "icons": [
         {
           "src": "/icons/weather-icon.svg",
-          "sizes": "96x96"
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     },
     {
-      "name": "Mountain Weather",
+      "name": "Mountain weather",
       "short_name": "Mountain",
-      "description": "View mountain weather conditions",
+      "description": "Ascent planning, wind and exposure",
       "url": "/?profile=mountain",
       "icons": [
         {
           "src": "/icons/weather-icon.svg",
-          "sizes": "96x96"
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     },
     {
-      "name": "Agricultural Weather",
+      "name": "Agricultural weather",
       "short_name": "Agriculture",
-      "description": "View agricultural weather conditions",
+      "description": "Soil, frost and irrigation",
       "url": "/?profile=agriculture",
       "icons": [
         {
           "src": "/icons/weather-icon.svg",
-          "sizes": "96x96"
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     }
-  ],
-  "features": [
-    "Cross Platform",
-    "Offline Support",
-    "AI Analysis",
-    "Historical Data",
-    "Weather Maps",
-    "Push Notifications",
-    "Multi-Profile Support"
   ],
   "edge_side_panel": {
     "preferred_width": 400

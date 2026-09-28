@@ -3,8 +3,11 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardHeader from "@mui/material/CardHeader";
 import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import CloudDoneIcon from "@mui/icons-material/CloudDone";
 import WifiIcon from "@mui/icons-material/Wifi";
 import WifiOffIcon from "@mui/icons-material/WifiOff";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -32,26 +35,43 @@ export function OfflineIndicator({ showDetails = false }: OfflineIndicatorProps)
     subscribeToPush,
     unsubscribeFromPush,
     canInstall,
+    isInstalled,
     promptInstall,
     formatCacheSize,
     formatLastUpdated,
   } = useOffline();
 
+  const cachedCount = cacheStatus?.totalCached ?? 0;
+
   if (!showDetails) {
+    const label = isOnline
+      ? "Online"
+      : cachedCount > 0
+        ? `Offline · ${cachedCount} cached`
+        : "Offline";
+
+    const explanation = isOnline
+      ? isServiceWorkerActive
+        ? `Live data. ${cachedCount} response${cachedCount === 1 ? "" : "s"} kept for offline use.`
+        : "Live data. Offline support is not active on this device yet."
+      : cachedCount > 0
+        ? `Showing saved data, last updated ${formatLastUpdated(cacheStatus?.lastUpdated ?? 0).toLowerCase()}.`
+        : "No connection and nothing saved for this location yet.";
+
     return (
-      <Chip
-        size="small"
-        variant="outlined"
-        color={isOnline ? "success" : "error"}
-        icon={isOnline ? <WifiIcon /> : <WifiOffIcon />}
-        label={
-          isOnline
-            ? "Online"
-            : cacheStatus && cacheStatus.totalCached > 0
-              ? `Offline · ${cacheStatus.totalCached} cached`
-              : "Offline"
-        }
-      />
+      <Tooltip title={explanation}>
+        {/* role=status so a screen reader hears the change without stealing focus. */}
+        <Chip
+          role="status"
+          aria-live="polite"
+          aria-label={`${label}. ${explanation}`}
+          size="small"
+          variant="outlined"
+          color={isOnline ? "success" : "warning"}
+          icon={isOnline ? <WifiIcon /> : <WifiOffIcon />}
+          label={label}
+        />
+      </Tooltip>
     );
   }
 
@@ -59,6 +79,11 @@ export function OfflineIndicator({ showDetails = false }: OfflineIndicatorProps)
     <Card>
       <CardHeader
         title="Offline and storage"
+        subheader={
+          isServiceWorkerActive
+            ? "Forecasts you have already opened stay available without a connection."
+            : "Offline support activates after the app has been loaded once from the network."
+        }
         slotProps={{ title: { variant: "h6", component: "h2" } }}
       />
       <CardContent>
@@ -69,8 +94,10 @@ export function OfflineIndicator({ showDetails = false }: OfflineIndicatorProps)
           >
             <Typography variant="body2">Connection</Typography>
             <Chip
+              role="status"
+              aria-live="polite"
               size="small"
-              color={isOnline ? "success" : "error"}
+              color={isOnline ? "success" : "warning"}
               icon={isOnline ? <WifiIcon /> : <WifiOffIcon />}
               label={isOnline ? "Online" : "Offline"}
             />
@@ -80,47 +107,78 @@ export function OfflineIndicator({ showDetails = false }: OfflineIndicatorProps)
             direction="row"
             sx={{ alignItems: "center", justifyContent: "space-between" }}
           >
-            <Typography variant="body2">Service worker</Typography>
+            <Typography variant="body2">Offline support</Typography>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              {isServiceWorkerActive ? "Active" : "Not active"}
+              {isServiceWorkerActive
+                ? `Active${cacheStatus?.version ? ` · ${cacheStatus.version}` : ""}`
+                : "Not active"}
             </Typography>
           </Stack>
 
+          {isInstalled && (
+            <Stack
+              direction="row"
+              sx={{ alignItems: "center", justifyContent: "space-between" }}
+            >
+              <Typography variant="body2">Installed</Typography>
+              <Chip
+                size="small"
+                variant="outlined"
+                color="success"
+                icon={<CloudDoneIcon />}
+                label="Running as an app"
+              />
+            </Stack>
+          )}
+
           {cacheStatus && (
             <>
+              <Divider />
               <Stack
                 direction="row"
                 sx={{ alignItems: "center", justifyContent: "space-between" }}
               >
-                <Typography variant="body2">Cached forecasts</Typography>
+                <Typography variant="body2">Saved responses</Typography>
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  {cacheStatus.totalCached} ·{" "}
-                  {formatCacheSize(cacheStatus.cacheSize)}
+                  {cachedCount} · {formatCacheSize(cacheStatus.cacheSize)}
                 </Typography>
               </Stack>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Last updated {formatLastUpdated(cacheStatus.lastUpdated)}
+                Newest saved copy: {formatLastUpdated(cacheStatus.lastUpdated)}
               </Typography>
             </>
           )}
 
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                refreshCacheStatus();
-                requestSync();
-              }}
+            <Tooltip
+              title={
+                isOnline
+                  ? "Refresh every saved forecast from the network"
+                  : "Needs a connection"
+              }
             >
-              Refresh
-            </Button>
+              {/* A disabled button swallows the pointer events a Tooltip needs. */}
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={!isOnline}
+                  startIcon={<RefreshIcon />}
+                  onClick={() => {
+                    requestSync();
+                    refreshCacheStatus();
+                  }}
+                >
+                  Refresh
+                </Button>
+              </span>
+            </Tooltip>
 
             <Button
               size="small"
               variant="outlined"
               color="error"
+              disabled={cachedCount === 0}
               startIcon={<DeleteIcon />}
               onClick={clearCache}
             >
@@ -142,11 +200,11 @@ export function OfflineIndicator({ showDetails = false }: OfflineIndicatorProps)
                   isPushSubscribed ? unsubscribeFromPush() : subscribeToPush()
                 }
               >
-                {isPushSubscribed ? "Mute alerts" : "Enable alerts"}
+                {isPushSubscribed ? "Mute notifications" : "Enable notifications"}
               </Button>
             )}
 
-            {canInstall && (
+            {canInstall && !isInstalled && (
               <Button
                 size="small"
                 variant="contained"

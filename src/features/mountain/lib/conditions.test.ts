@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  avalancheReading,
   avalancheRisk,
+  avalancheThresholdDanger,
   visibilityCondition,
   windCondition,
 } from "./conditions";
@@ -84,11 +86,15 @@ describe("avalancheRisk", () => {
   });
 });
 
-describe("the two avalanche calculations disagree", () => {
+describe("the two avalanche calculations now agree", () => {
   /**
-   * This test exists to make the conflict visible and to fail loudly if
-   * somebody "fixes" one side without the other. It asserts the disagreement,
-   * so resolving the duplication SHOULD break it — at which point delete it.
+   * The predecessor of this block asserted the *disagreement* between the two
+   * scorers, and said resolving the duplication should break it. It did.
+   *
+   * `avalancheReading` is now the single source of truth and both the tile and
+   * `adviseMountain` derive from it, so what is pinned here is the agreement —
+   * and the direction of the composition, which is that it takes the more
+   * severe of the two and therefore never de-escalates a warning.
    */
   function forecast(current: Partial<CurrentWeather>): WeatherResponse {
     return {
@@ -110,16 +116,55 @@ describe("the two avalanche calculations disagree", () => {
     };
   }
 
-  it("reports different levels for the same heavy-snow conditions", () => {
+  it("reports the same level for the heavy-snow case that used to split them", () => {
     const conditions = {
       temperature_2m: -10,
       wind_speed_10m: 5,
       weather_code: 75,
     };
 
-    // Threshold-based: any code > 70 is "high".
-    expect(adviseMountain(forecast(conditions)).avalancheRisk).toBe("high");
-    // Points-based: snow alone scores 2, which is still "Low".
+    // The two halves still disagree in isolation, and both are still exported
+    // so that stays visible: points scores snow alone at 2, which is "Low",
+    // while the threshold rule reads any code > 70 as "high".
     expect(avalancheRisk(-10, 5, 75).level).toBe("Low");
+    expect(avalancheThresholdDanger(-10, 75)).toBe("high");
+
+    // The reading composes them, and the advice card reads the composition —
+    // so the tile and the card now say the same thing.
+    expect(avalancheReading(-10, 5, 75).danger).toBe("high");
+    expect(adviseMountain(forecast(conditions)).avalancheRisk).toBe("high");
+  });
+
+  it("takes the more severe half, so a warning is never de-escalated", () => {
+    // Points high, threshold low: 1°C melt-freeze + 45 km/h wind + fresh snow
+    // scores 7, which is "Extreme"; the threshold rule sees code 75 as "high".
+    expect(avalancheRisk(1, 45, 75).level).toBe("Extreme");
+    expect(avalancheThresholdDanger(1, 75)).toBe("high");
+    expect(avalancheReading(1, 45, 75).danger).toBe("extreme");
+
+    // And the reverse: threshold high, points Low.
+    expect(avalancheRisk(20, 5, 95).level).toBe("Low");
+    expect(avalancheThresholdDanger(20, 95)).toBe("high");
+    expect(avalancheReading(20, 5, 95).danger).toBe("high");
+  });
+
+  it("agrees with both halves when they already agree", () => {
+    expect(avalancheReading(-10, 5, 0).danger).toBe("low");
+    expect(avalancheReading(1, 5, 0).danger).toBe("moderate");
+  });
+
+  /**
+   * "considerable" is EADS level 3 and neither scorer can produce it — the
+   * points bands are spelled Low/Moderate/High/Extreme and the threshold rule
+   * emits only low/moderate/high. Pinned so that a future scorer which *can*
+   * reach it has to do so deliberately.
+   */
+  it("never produces the EADS 'considerable' band from either scorer", () => {
+    const cases: [number, number, number][] = [
+      [-20, 0, 0], [-1, 70, 75], [1, 45, 75], [20, 5, 95], [3, 30, 63],
+    ];
+    for (const [t, w, c] of cases) {
+      expect(avalancheReading(t, w, c).danger).not.toBe("considerable");
+    }
   });
 });

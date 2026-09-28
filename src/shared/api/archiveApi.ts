@@ -1,4 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { createBaseQuery } from "./baseQuery";
 import type { Coordinates, HistoricalResponse } from "@/shared/types/weather";
 
 /**
@@ -11,9 +12,7 @@ import type { Coordinates, HistoricalResponse } from "@/shared/types/weather";
  */
 export const archiveApi = createApi({
   reducerPath: "archive",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "https://archive-api.open-meteo.com/v1/",
-  }),
+  baseQuery: createBaseQuery("https://archive-api.open-meteo.com/v1/"),
   tagTypes: ["Historical"],
   endpoints: (builder) => ({
     getHistoricalData: builder.query<

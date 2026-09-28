@@ -1,4 +1,6 @@
 import { soilMoisturePercent } from "@/features/agriculture/lib/conditions";
+import { accumulateGdd, describeAccumulation } from "@/features/agriculture/lib/gdd";
+import { assessSprayConditions } from "@/features/agriculture/lib/spray";
 import type {
   AgriculturalAnalysis,
   AgriculturalResponse,
@@ -6,7 +8,17 @@ import type {
 
 /**
  * Growing advice, from a city balcony to a farm: soil condition, frost risk,
- * whether to irrigate. Pure — see features/forecast/lib/advice.ts.
+ * whether to irrigate, whether to spray.
+ *
+ * Deterministic and rule-based. Every branch is a hand-written threshold and
+ * `confidence` is a hand-assigned constant — nothing here calls a model.
+ *
+ * ⚠️ **The soil-moisture unit trap.** Open-Meteo's `soil_moisture_*` fields are
+ * volumetric water content in **m³/m³**, a 0–1 fraction. Every threshold below
+ * is a percentage. Comparing the raw value scores *every reading on Earth* as
+ * "very dry, irrigate immediately", because volumetric water content never
+ * reaches 20 on that scale. `soilMoisturePercent` is the only correct way in,
+ * and `conditions.test.ts` pins it.
  */
 export const adviseAgriculture = (
   agri: AgriculturalResponse
@@ -89,10 +101,35 @@ export const adviseAgriculture = (
     harvestRecommendation = "High humidity - delay harvest if possible";
   }
 
+  // Spray window — the four label conditions judged together. Reported as a
+  // tip rather than folded into `riskLevel`, because "do not spray today" is
+  // not the same claim as "the crop is at risk today".
+  const spray = assessSprayConditions({
+    windSpeedKmh: agri.current.wind_speed_10m,
+    // Current conditions carry no probability of precipitation, so the nearest
+    // hour's is used. Absent, the assessment says so rather than assuming dry.
+    precipitationProbability: agri.hourly?.precipitation_probability?.[0],
+    relativeHumidity: humidity,
+    temperatureC: temp,
+  });
+  tips.push(
+    spray.verdict === "go"
+      ? "Spray window open — wind, humidity and rain risk are all inside the usual label band."
+      : `Spraying: ${spray.summary} ${spray.reasons[0] ?? ""}`.trim(),
+  );
+
+  // Degree-days across the forecast window, at the conventional base 10°C.
+  const gdd = accumulateGdd(agri.daily, { base: 10 });
+  if (gdd.days.length > 0) {
+    tips.push(
+      `${gdd.total.toFixed(0)} growing degree-days forecast over ${gdd.days.length} days at base 10°C. ${describeAccumulation(gdd)}`,
+    );
+  }
+
   return {
     recommendation: `${soilConditions} soil conditions, ${frostRisk} frost risk`,
     confidence: 90,
-    reasoning: `Soil: ${soilTemp}°C/${soilMoisture.toFixed(1)}%, Air: ${temp}°C, Humidity: ${humidity}%`,
+    reasoning: `Soil: ${soilTemp}°C/${soilMoisture.toFixed(1)}% (converted from ${agri.current.soil_moisture_0_1cm} m³/m³), Air: ${temp}°C, Humidity: ${humidity}%`,
     riskLevel,
     profileSpecificTips: tips,
     soilConditions,

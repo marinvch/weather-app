@@ -1,3 +1,4 @@
+import { formatCoordinates, normalizeCoordinates } from '@/shared/lib/geo';
 import type { Coordinates } from '@/shared/types/weather';
 
 export interface LocationInfo {
@@ -120,7 +121,70 @@ const EMERGENCY_NUMBERS: Record<string, EmergencyNumbers> = {
   },
 };
 
-export async function getCurrentLocation(): Promise<LocationInfo> {
+/**
+ * The browser's own `GeolocationPositionError.message` is implementation text
+ * ("Timeout expired", "User denied Geolocation") that varies by browser and
+ * says nothing about what to do. The code is standard, so the wording is ours.
+ */
+function describePositionError(error: GeolocationPositionError): string {
+  switch (error.code) {
+    case 1:
+      return "Location permission was denied — search for a place instead, or allow location in your browser settings";
+    case 2:
+      return "Your device could not determine where you are — search for a place instead";
+    case 3:
+      return "Finding your location took too long — try again, or search for a place";
+    default:
+      return "Could not get your location — search for a place instead";
+  }
+}
+
+/** The request in flight, shared by every caller until it settles. */
+let pendingLocation: Promise<LocationInfo> | null = null;
+
+/**
+ * The longest a location request may stay pending, prompt included. The API's
+ * own `timeout` does not start until permission is granted, and Firefox calls
+ * neither callback when its prompt is dismissed — without this, one hung
+ * request would be shared by every later "Use my location" click. Generous,
+ * so someone reading the permission prompt is not cut off mid-thought.
+ */
+export const LOCATION_DEADLINE_MS = 30_000;
+
+function withDeadline<T>(request: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(
+            describePositionError({ code: 3 } as GeolocationPositionError),
+          ),
+        ),
+      LOCATION_DEADLINE_MS,
+    );
+  });
+  return Promise.race([request, deadline]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * The device's position, reverse-geocoded.
+ *
+ * Concurrent calls share one request. React StrictMode runs the mount effect
+ * twice in development, and each run used to start its own — two permission
+ * checks, two ten-second timeouts, two identical errors. Once the request
+ * settles the next call asks again, so "Use my location" after a failure is a
+ * real retry. A request that never settles is cut off at
+ * `LOCATION_DEADLINE_MS`.
+ */
+export function getCurrentLocation(): Promise<LocationInfo> {
+  pendingLocation ??= withDeadline(requestCurrentLocation()).finally(() => {
+    pendingLocation = null;
+  });
+  return pendingLocation;
+}
+
+function requestCurrentLocation(): Promise<LocationInfo> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error("Geolocation is not supported by this browser"));
@@ -129,10 +193,13 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const coords = {
+        // The Geolocation API is WGS 84 by specification, same as everything
+        // downstream — see @/shared/lib/geo. Normalizing is a no-op here and
+        // is kept so the boundary is explicit.
+        const coords = normalizeCoordinates({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        };
+        });
 
         try {
           const locationInfo = await getLocationInfo(coords);
@@ -144,15 +211,13 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
             city: "Unknown",
             country: "Unknown",
             countryCode: "DEFAULT",
-            displayName: `${coords.latitude.toFixed(
-              4
-            )}, ${coords.longitude.toFixed(4)}`,
+            displayName: formatCoordinates(coords),
             emergencyNumbers: EMERGENCY_NUMBERS.DEFAULT,
           });
         }
       },
       (error) => {
-        reject(new Error(`Failed to get your location: ${error.message}`));
+        reject(new Error(describePositionError(error)));
       },
       {
         enableHighAccuracy: true,
@@ -164,8 +229,12 @@ export async function getCurrentLocation(): Promise<LocationInfo> {
 }
 
 export async function getLocationInfo(
-  coordinates: Coordinates
+  input: Coordinates
 ): Promise<LocationInfo> {
+  // Nominatim's `lat`/`lon` are WGS 84 and it rejects out-of-range values, so
+  // a point dragged past the antimeridian on the map is wrapped here.
+  const coordinates = normalizeCoordinates(input);
+
   try {
     // Use Nominatim (OpenStreetMap) free reverse geocoding service
     // No custom headers, deliberately. This used to send a User-Agent, which
@@ -208,11 +277,7 @@ export async function getLocationInfo(
         ? `${city}, ${region}, ${country}`
         : `${city}, ${country}`;
     } else {
-      displayName =
-        data.display_name ||
-        `${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(
-          4
-        )}`;
+      displayName = data.display_name || formatCoordinates(coordinates);
     }
 
     // Get emergency numbers for the country
@@ -237,9 +302,7 @@ export async function getLocationInfo(
       city: "Unknown",
       country: "Unknown",
       countryCode: "DEFAULT",
-      displayName: `${coordinates.latitude.toFixed(
-        4
-      )}, ${coordinates.longitude.toFixed(4)}`,
+      displayName: formatCoordinates(coordinates),
       emergencyNumbers: EMERGENCY_NUMBERS.DEFAULT,
     };
   }

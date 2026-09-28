@@ -1,6 +1,17 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-interface AppPreferences {
+/**
+ * One saved place. `id` is `coordinatesKey(...)`, so the same point cannot be
+ * saved twice under two names.
+ */
+export interface FavoriteLocation {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface AppPreferences {
   theme: "light" | "dark" | "system";
   refreshInterval: number; // in minutes
   cacheExpiry: number; // in minutes
@@ -9,15 +20,14 @@ interface AppPreferences {
   compactView: boolean;
   showCharts: boolean;
   alertSensitivity: "low" | "medium" | "high";
-  favoriteLocations: Array<{
-    id: string;
-    name: string;
-    latitude: number;
-    longitude: number;
-  }>;
+  favoriteLocations: FavoriteLocation[];
 }
 
-const initialState: AppPreferences = {
+/**
+ * Exported so the persistence layer can fall back to it field by field when a
+ * stored value fails validation.
+ */
+export const initialPreferencesState: AppPreferences = {
   theme: "system",
   refreshInterval: 15,
   cacheExpiry: 60,
@@ -31,7 +41,7 @@ const initialState: AppPreferences = {
 
 export const preferencesSlice = createSlice({
   name: "preferences",
-  initialState,
+  initialState: initialPreferencesState,
   reducers: {
     setTheme: (state, action: PayloadAction<"light" | "dark" | "system">) => {
       state.theme = action.payload;
@@ -68,15 +78,7 @@ export const preferencesSlice = createSlice({
       state.alertSensitivity = action.payload;
     },
 
-    addFavoriteLocation: (
-      state,
-      action: PayloadAction<{
-        id: string;
-        name: string;
-        latitude: number;
-        longitude: number;
-      }>
-    ) => {
+    addFavoriteLocation: (state, action: PayloadAction<FavoriteLocation>) => {
       const exists = state.favoriteLocations.some(
         (loc) => loc.id === action.payload.id
       );
@@ -95,11 +97,7 @@ export const preferencesSlice = createSlice({
       state,
       action: PayloadAction<{
         id: string;
-        updates: Partial<{
-          name: string;
-          latitude: number;
-          longitude: number;
-        }>;
+        updates: Partial<Omit<FavoriteLocation, "id">>;
       }>
     ) => {
       const index = state.favoriteLocations.findIndex(

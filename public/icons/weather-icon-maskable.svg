@@ -1,0 +1,27 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Maskable variant: full-bleed background with the artwork scaled to 80% and
+    centred, so it survives any mask shape the platform applies (the safe zone
+    is the central 80% circle). The plain icon has no bleed and would get its
+    edges cut.
+  -->
+  <rect width="192" height="192" fill="#3B82F6"/>
+  <g transform="translate(19.2 19.2) scale(0.8)">
+    <circle cx="96" cy="96" r="96" fill="#3B82F6"/>
+
+    <!-- Sun -->
+    <circle cx="80" cy="70" r="20" fill="#FCD34D"/>
+    <path d="M80 30 L80 20 M120 50 L127 43 M130 70 L140 70 M120 90 L127 97 M80 110 L80 120 M40 90 L33 97 M30 70 L20 70 M40 50 L33 43"
+          stroke="#FCD34D" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- Cloud -->
+    <path d="M50 120 C50 110 58 102 68 102 C70 95 77 90 85 90 C95 90 103 98 103 108 C110 108 116 114 116 122 C116 130 110 136 102 136 L58 136 C52 136 47 131 47 125 C47 122 48.5 119.5 50 118.5 Z"
+          fill="white" fill-opacity="0.9"/>
+
+    <!-- Raindrops -->
+    <ellipse cx="70" cy="145" rx="2" ry="8" fill="#60A5FA"/>
+    <ellipse cx="85" cy="150" rx="2" ry="8" fill="#60A5FA"/>
+    <ellipse cx="100" cy="145" rx="2" ry="8" fill="#60A5FA"/>
+    <ellipse cx="115" cy="150" rx="2" ry="8" fill="#60A5FA"/>
+  </g>
+</svg>

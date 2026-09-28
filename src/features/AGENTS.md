@@ -42,16 +42,15 @@ The product is **advice**, not data — "don't take the boat out", "you'll want 
 belongs in the feature's `lib/`, as pure functions from a forecast to a recommendation. Keep it out
 of components (untestable) and out of the API layer (only reachable through the network).
 
-Right now the advice functions still sit in `@/shared/api/*` where they were written. Moving each
-into its own feature is the next step; `generateGeneralAnalysis` and `generateMountainAnalysis` are
-already exported and tested, so they move first.
+Every persona's advice now lives in its own `lib/advice.ts`, each with a test beside it; nothing in
+`@/shared/api` derives advice.
 
 ## Gotchas
 
-- All four dashboards repeat the same loading / error / incomplete-data / render shape in ~1183
-  lines. That duplication is the reason a profile registry has not been built yet — extract the
-  shared skeleton first, or the registry just centralises the mess.
-- `agriculture` issues two queries and gates loading on both, so a slow soil request blocks the
-  whole view.
-- Only `location/lib/geolocation.ts` has tests in this layer. Dashboards have none — verify changes
-  by running `npm run dev` and loading the page.
+- All four dashboards render through `@/shared/ui/DashboardShell` (loading / failed / empty / ready)
+  and are registered in `src/app/profiles.tsx`, which code-splits each one. A new dashboard needs
+  a registry entry, and its chunk is only offline-safe because `preloadDashboards()` fetches it.
+- `agriculture`'s soil profile and river sections each run their own query inside `QueryState`, so
+  a slow or failed one degrades only its own section.
+- Tests cover every feature's `lib/` (advice, scoring, parsing). Components and dashboards have
+  none — verify a UI change by running `npm run dev` and loading the page.

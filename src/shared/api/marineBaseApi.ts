@@ -1,4 +1,5 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { createBaseQuery } from "./baseQuery";
 
 /**
  * Base API for `marine-api.open-meteo.com` — a different host from the forecast
@@ -9,9 +10,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
  */
 export const marineBaseApi = createApi({
   reducerPath: "marine",
-  baseQuery: fetchBaseQuery({
-    baseUrl: "https://marine-api.open-meteo.com/v1/",
-  }),
+  baseQuery: createBaseQuery("https://marine-api.open-meteo.com/v1/"),
   tagTypes: ["Marine"],
   endpoints: () => ({}),
 });

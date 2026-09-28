@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weather Pro — offline</title>
+    <meta name="theme-color" content="#0ea5e9" />
+    <!--
+      Served by sw.js only when a navigation fails and there is no cached shell
+      to boot. It is deliberately self-contained: no bundle, no font, no image
+      request, because by definition nothing can be fetched at this point.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: #f5f7fa;
+        color: #16202c;
+      }
+      main {
+        max-width: 30rem;
+        text-align: center;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        margin: 0 0 1rem;
+        line-height: 1.55;
+        color: #4a5763;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        color: #fff;
+        background: #0ea5e9;
+        border: 0;
+        border-radius: 8px;
+        padding: 0.65rem 1.4rem;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0284c7;
+      }
+      .status {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        color: #6b7885;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0d1117;
+          color: #e6edf3;
+        }
+        p {
+          color: #9aa7b4;
+        }
+        .status {
+          color: #7d8b99;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Weather Pro is offline</h1>
+      <p>
+        You are offline and this device has no cached copy of the app yet.
+        Forecasts you have already viewed stay available once the app has been
+        opened online at least once.
+      </p>
+      <button type="button" id="retry">Try again</button>
+      <p class="status" id="status">Waiting for a connection…</p>
+    </main>
+    <script>
+      var status = document.getElementById("status");
+      document.getElementById("retry").addEventListener("click", function () {
+        location.reload();
+      });
+      window.addEventListener("online", function () {
+        status.textContent = "Back online — reloading…";
+        location.reload();
+      });
+      if (navigator.onLine) {
+        status.textContent =
+          "This device reports a connection, but the app could not be reached.";
+      }
+    </script>
+  </body>
+</html>

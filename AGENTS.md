@@ -78,10 +78,12 @@ npm run typecheck # tsc -b --force
 No credentials needed. Open-Meteo and Nominatim are keyless. `.env` is untracked and unused — do
 not invent `VITE_*` variables without adding them there first.
 
-Tests run on **Vitest + jsdom + Testing Library**. Coverage is partial and deliberate: the pure
-logic is covered (emergency-number lookup and reverse-geocode fallbacks, the two analysis scorers,
-WeatherCard's unit conversions), the dashboards and the store are not. A green suite means those
-three areas still hold — it is not yet evidence the app works.
+Tests run on **Vitest + jsdom + Testing Library**. What is covered: every feature's pure `lib/`
+(advice, scoring, parsing, geolocation), the shared libs and transport (`baseQuery`, units, geo,
+map tiles), the shared UI atoms and `SectionErrorBoundary`, the profile registry, and store
+persistence. What is not: the four dashboards and `App` as rendered wholes. A green suite is
+strong evidence for the logic and weak evidence the page works — load it before claiming a UI
+change is done.
 
 ## Invariants
 
@@ -94,14 +96,20 @@ three areas still hold — it is not yet evidence the app works.
   never the untyped react-redux hooks.
 - Weather and profile types are imported from `@/shared/types/weather`. Do not redeclare shapes
   inline in a component.
+- **WGS 84 decimal degrees (EPSG:4326) is the only coordinate system, everywhere**, ordered
+  `latitude, longitude`. Every source already speaks it, so nothing in this app converts a
+  coordinate — a function that does is a bug. `@/shared/lib/geo` owns the constant, the range
+  checks, `normalizeCoordinates` and `formatCoordinates`; boundaries that admit a coordinate from
+  outside normalize there. See [ADR 0001](docs/adr/0001-wgs84-is-the-only-coordinate-system.md).
 - Dashboard components take both `coordinates` **and** `locationName` as props; `locationName` is
   display-only but every dashboard header expects it.
 
 ## Gotchas
 
-- `public/sw.js` pre-caches `/static/js/bundle.js` and `/static/css/main.css`, which are
-  Create-React-App paths that do not exist in a Vite build. The API caching works; the app-shell
-  precache does not.
+- `public/sw.js` precaches only paths that survive a rebuild (`/`, `offline.html`, the icons);
+  Vite's hashed `/assets/*` files are cached at runtime, cache-first. So a code-split chunk works
+  offline only once something has fetched it — which is why `App` calls `preloadDashboards()` at
+  idle. Add a lazy chunk without a preload and that screen breaks offline.
 - `.github/copilot-instructions.md` is an older hand-written brief and is now substantially stale:
   it describes the Tailwind/shadcn stack, the pre-feature folder layout, and a **London**
   geolocation fallback (the code falls back to Medenrudnik, Burgas, Bulgaria — `src/app/App.tsx`).
