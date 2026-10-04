@@ -33,11 +33,9 @@ Start here — these are real and already found:
    `src/features/*/lib/advice.ts`, which is what the root `AGENTS.md` correctly says. Two of this
    repo's own context documents currently contradict each other about where its central domain
    concept lives.
-2. **`.github/copilot-instructions.md` is substantially stale** — it describes the Tailwind/shadcn
-   stack (removed), the pre-feature folder layout (replaced), and a **London** geolocation fallback
-   (the code falls back to Medenrudnik, Burgas). The root brief already flags it. Decide with the
-   user whether it gets fixed or deleted; a stale brief that an agent may load is worse than no
-   brief, and it is the file a Copilot user reads first.
+2. **`.github/copilot-instructions.md` is a one-line shim to the root `AGENTS.md`**, like
+   `CLAUDE.md` and `GEMINI.md`. It replaced a stale hand-written brief; never let it grow its own
+   copy of the content, because a stale brief that an agent may load is worse than no brief.
 
 ## What a good brief does here
 

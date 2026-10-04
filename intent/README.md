@@ -25,10 +25,11 @@ connector lets Claude commit the file for you.
 
 ## Who accepts one
 
-The repository owner (@marinvch) reviews and accepts. The accept-or-reject decision is recorded
-as the merge or the closing review — that record is the governance evidence, so decisions are not made in chat.
+The repository owner (@marinvch) reviews and accepts. The accept-or-reject decision is recorded as the merge or the
+closing review — that record is the governance evidence, so decisions are not made in chat.
 
 ## Where the record lives
 
-This repo is the source of truth for intent. There was no earlier record: before this folder,
-what the app was asked to do lived only in commit messages, the README and `docs/adr/`.
+This repo is the source of truth for intent.
+There was no earlier record: before this folder, what the app was asked to do lived only in
+commit messages, the README and `docs/adr/`.

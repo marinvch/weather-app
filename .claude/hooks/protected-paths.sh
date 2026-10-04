@@ -6,6 +6,10 @@
 # A block explains itself. Exit 2 blocks the action and sends the message to Claude, so the reason
 # and the route to approval have to be IN the message; a bare refusal teaches the user only that
 # Claude stopped.
+#
+# One thing this cannot stop: a Claude Code mod the user installed. A mod that approves tool calls
+# can approve an edit this hook blocked, unless the hook runs from managed settings.
+# https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default
 set -uo pipefail
 
 # Fail CLOSED. Claude Code treats any exit other than 2 as a non-blocking error, so the first
@@ -28,6 +32,11 @@ if [ -z "$path" ]; then
   esac
   exit 0
 fi
+
+# One separator. The patterns are POSIX globs (`*/dist/*`), and on Windows Claude Code hands the hook
+# `C:\repo\dist\x.js` — which no `*/x/*` pattern matches, so every protected edit went through on
+# that platform while the hook reported nothing. Normalised here once, so one pattern set covers both.
+path=${path//\\//}
 
 # The index found no generated or frozen paths committed here (dist/ is gitignored), so the list
 # starts empty. Add a shell glob per line — for example "*/src/generated/*" — when one appears.

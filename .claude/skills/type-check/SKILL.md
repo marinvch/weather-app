@@ -5,9 +5,10 @@ description: Run the TypeScript checker on this repo and keep the strict config 
 
 # /type-check — keep types honest
 
-There is no test suite here, so the type checker is the only automated verification this repo has.
-It is not wired into a standalone npm script — `tsc -b` only runs as half of `npm run build` — which
-makes it easy to skip.
+The Vitest suite (`npm run test:run`) covers the pure logic and the shared UI atoms; the four
+dashboards and `App` have no rendered tests, so for them the type checker is the only automated
+verification. It runs as `npm run typecheck` (`tsc -b --force`) and again as the first half of
+`npm run build`.
 
 ## Steps
 
@@ -49,13 +50,11 @@ makes it easy to skip.
 - **`verbatimModuleSyntax` is on**, so every type-only import must be written `import type { … }`.
   A plain `import` of a type is an error, not a style choice.
 - **`noUnusedLocals` and `noUnusedParameters` are on.** A prop you accept and do not use must be
-  left out of the destructure — which is why several dashboards destructure only `coordinates` and
-  never bind `locationName`.
-- **There is exactly one type escape in `src/`** — the Leaflet icon patch at
-  `src/components/WeatherMap/WeatherMap.tsx:10-11`, with an eslint-disable and a comment saying
-  why. Adding a second `as any`, `@ts-ignore` or `@ts-expect-error` needs the same treatment: a
-  comment naming the library limitation that forces it. If you cannot name one, fix the type.
-- **Response types live in `src/types/weather.ts`.** Do not silence a type error by declaring a
+  left out of the destructure.
+- **There are no type escapes in `src/`** — no `as any`, `@ts-ignore`, `@ts-expect-error` or
+  `eslint-disable`. Adding the first one needs an eslint-disable and a comment naming the library
+  limitation that forces it. If you cannot name one, fix the type.
+- **Response types live in `src/shared/types/weather.ts`.** Do not silence a type error by declaring a
   local shape in a component — that hides the mismatch instead of recording it.
 
 ## Verify
@@ -65,6 +64,6 @@ npx tsc -b --force
 npm run lint
 ```
 
-`tsc -b --force` must exit 0. `npm run lint` must report **only** the two known baseline errors in
-`ui/badge.tsx` and `ui/button.tsx` — not zero, and not three. `npm run build` also proves the type
+`tsc -b --force` must exit 0. `npm run lint` must exit 0 with no output — there is no baseline of
+known errors. `npm run build` also proves the type
 half, but it additionally runs the Vite bundle, so it is the slower way to learn the same thing.

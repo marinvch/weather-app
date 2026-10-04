@@ -5,9 +5,9 @@ description: Set up Vitest in this repo and write the first real test, or add a 
 
 # /write-first-test — get a real test running
 
-This repo has **zero test files and no test runner installed**. `npm test` does not exist. Every
-change here is currently verified only by `tsc -b` and by loading the page — which is why this skill
-exists and why it should stop being needed after it runs once.
+The harness exists: Vitest + jsdom + Testing Library are installed, and `npm run test:run` runs the
+suite once (`npm test` is watch mode and does not return). Steps 1–3 below are already done and
+stay as the record of how it is set up — to add a test, start at step 4.
 
 The runner for this repo is **Vitest**: it reads the existing `vite.config.ts`, so the React plugin,
 the ES2015 target and the module resolution already match how the app actually builds. Do not
@@ -28,17 +28,16 @@ introduce Jest — it needs its own ESM and JSX pipeline against `"type": "modul
 
 3. Add scripts to `package.json`: `"test": "vitest"` and `"test:run": "vitest run"`.
 
-4. Write the first test against something pure — **not** a component. The highest-value targets, in
-   order, are the places with real logic and no React:
+4. Write the test against something pure — **not** a component. The places with real logic and no
+   React, each already with a test file beside it to extend:
 
-   - `src/utils/geolocation.ts` — emergency-number lookup by country code, including the fallback
-     for a country missing from `EMERGENCY_NUMBERS`.
-   - `src/store/api/weatherApi.ts` — `generateGeneralAnalysis` / `generateMountainAnalysis` are pure
-     functions from a `WeatherResponse` to an analysis. They are **not exported**; export them (or
-     move them to a sibling module) as part of writing the test rather than testing through the
-     network layer.
-   - `src/components/WeatherCard/WeatherCard.tsx` — the metric→imperial conversions and the
-     16-point compass derivation.
+   - `src/features/location/lib/geolocation.ts` — emergency-number lookup by country code,
+     including the fallback for a country missing from `EMERGENCY_NUMBERS`.
+   - `src/features/*/lib/advice.ts` — `adviseGeneral`, `adviseMarine`, `adviseMountain` and
+     `adviseAgriculture` are exported pure functions from a response to an analysis. Test them
+     directly rather than through the network layer.
+   - `src/shared/lib/units.ts` — the metric→imperial conversions and `degreesToCardinal`;
+     `src/shared/ui/WeatherCard.tsx` holds the 16-point compass derivation.
 
 5. Only then move to components with `@testing-library/react`. The dashboard contract makes them
    testable: each takes `{ coordinates, locationName }` and owns its query, so render it inside a
@@ -46,13 +45,13 @@ introduce Jest — it needs its own ESM and JSX pipeline against `"type": "modul
 
 ## Invariants
 
-- **Test files sit beside the code** as `*.test.ts` / `*.test.tsx`, matching the one-folder-per-
-  component layout already in `src/components/`. Do not create a parallel `__tests__` tree.
+- **Test files sit beside the code** as `*.test.ts` / `*.test.tsx` — `src/shared/lib/units.test.ts`
+  next to `units.ts`. `src/test/` holds only `setup.ts`. Do not create a parallel `__tests__` tree.
 - **Add the test glob to `tsconfig.app.json`'s reach or the checker will not see the tests** — they
   are under `src/`, so they are included today, which also means `noUnusedLocals` applies to them.
 - **ESLint covers every `.ts`/`.tsx` file with no test override**, so test files are linted like
-  source. Add an override block to `eslint.config.js` if testing idioms trip it. Note the tree
-  already has two baseline lint errors (`ui/badge.tsx`, `ui/button.tsx`) — see `/type-check`.
+  source. Add an override block to `eslint.config.js` if testing idioms trip it. `npm run lint` is
+  clean, with no baseline errors — see `/type-check`.
 - **Mock the network, never hit Open-Meteo in a test.** The APIs are keyless and would work, which
   is exactly the trap: a test that silently depends on a live third-party host is not a test.
 - **A bug fix starts with a failing test that reproduces it**, then the fix. That ordering is the
@@ -71,5 +70,5 @@ existing checks:
 npx tsc -b --force && npm run lint
 ```
 
-Once `npm test` exists and passes, update the "Running it" section of the root `AGENTS.md` — it
-currently states there is no test command, and that line must stop being true.
+The "Running it" section of the root `AGENTS.md` lists the test commands and says what is and is
+not covered. When a test covers something that paragraph lists as uncovered, update it.

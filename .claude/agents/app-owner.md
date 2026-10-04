@@ -43,8 +43,7 @@ to look at the API layer, which is fine. When a query never resolves, check the 
    renders, which theme applies and which analysis runs. It is not a user, a role or a mode — all
    three imply permissions, and there are none. Held in `userProfile.profile`.
 3. **The geolocation fallback is Medenrudnik, Burgas, Bulgaria**, in `src/app/App.tsx` — *not*
-   London. `.github/copilot-instructions.md` says London and is stale in several other ways too;
-   trust the code and the root `AGENTS.md`.
+   London, which older notes claim; trust the code and the root `AGENTS.md`.
 
 Weather and profile types come from `@/shared/types/weather`. Do not redeclare a shape inline.
 
