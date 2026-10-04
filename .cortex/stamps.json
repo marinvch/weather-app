@@ -1,0 +1,150 @@
+{
+  "format": 1,
+  "cortex": "2.41.16",
+  "files": {
+    ".claude/agents/architect.md": {
+      "template": "team/architect.md",
+      "version": "2.41.16",
+      "templateSha256": "52940274327a33d730f3e9c2d1ff05b4247e9e725a9e25b00bcf6869af6e6bc0",
+      "fileSha256": "7abbdad3e10877c8c7883f3595d08784453d9e92abca9a61427c3dee9d16163d",
+      "renderable": true,
+      "values": {
+        "ADR_DIR": "docs/adr/",
+        "PLAN_DIRS": "`intent/`",
+        "ROSTER": "`architect`, `implementer`, `tester`, `project-manager`, `verifier` (reviewer)",
+        "SCOPED_BRIEFS": "   - `src/app/AGENTS.md`\n   - `src/features/AGENTS.md`\n   - `src/shared/AGENTS.md`\n   - `src/store/AGENTS.md`",
+        "TEST_CMD": "npm run test:run",
+        "TEST_GLOBS": "  \"*/test/*\"\n  \"*.test.ts\"\n  \"*.test.tsx\"",
+        "TEST_PATHS": "`**/test/**`, `**/*.test.ts`, `**/*.test.tsx`"
+      }
+    },
+    ".claude/agents/implementer.md": {
+      "template": "team/implementer.md",
+      "version": "2.41.16",
+      "templateSha256": "d1771ffceaed4d5342cc5eba764fbc1d5f305e65d6cd7482003c2678872f5a85",
+      "fileSha256": "a7056f359031e25c1ab2043ce4f33ebbeea3a72202395631e58fbbc4fbcf4a4f",
+      "renderable": true,
+      "values": {
+        "ADR_DIR": "docs/adr/",
+        "PLAN_DIRS": "`intent/`",
+        "ROSTER": "`architect`, `implementer`, `tester`, `project-manager`, `verifier` (reviewer)",
+        "SCOPED_BRIEFS": "   - `src/features/AGENTS.md`\n   - `src/shared/AGENTS.md`",
+        "TEST_CMD": "npm run test:run",
+        "TEST_GLOBS": "  \"*/test/*\"\n  \"*.test.ts\"\n  \"*.test.tsx\"",
+        "TEST_PATHS": "`**/test/**`, `**/*.test.ts`, `**/*.test.tsx`"
+      }
+    },
+    ".claude/agents/project-manager.md": {
+      "template": "team/project-manager.md",
+      "version": "2.41.16",
+      "templateSha256": "c518b828c9ea966abf926268d3c2dcecf61e3d1f102221182588a139547d286f",
+      "fileSha256": "a1d0266c402b8143adfb99e2d6a94f31121d250a65464b68624b0ee9f433dd06",
+      "renderable": true,
+      "values": {
+        "ADR_DIR": "docs/adr/",
+        "PLAN_DIRS": "`intent/`",
+        "ROSTER": "`architect`, `implementer`, `tester`, `project-manager`, `verifier` (reviewer)",
+        "SCOPED_BRIEFS": "   - `src/features/AGENTS.md`\n   - `src/shared/AGENTS.md`",
+        "TEST_CMD": "npm run test:run",
+        "TEST_GLOBS": "  \"*/test/*\"\n  \"*.test.ts\"\n  \"*.test.tsx\"",
+        "TEST_PATHS": "`**/test/**`, `**/*.test.ts`, `**/*.test.tsx`"
+      }
+    },
+    ".claude/agents/tester.md": {
+      "template": "team/tester.md",
+      "version": "2.41.16",
+      "templateSha256": "9ad54f89600ba1b4dc24b95f539b03130aae7a64709ba33ae5f18fc660dfc3a6",
+      "fileSha256": "f25495a512f2ec7a1323c67c086a4e5e2080502b18e933c2b0cfb80d381bd742",
+      "renderable": true,
+      "values": {
+        "ADR_DIR": "docs/adr/",
+        "PLAN_DIRS": "`intent/`",
+        "ROSTER": "`architect`, `implementer`, `tester`, `project-manager`, `verifier` (reviewer)",
+        "SCOPED_BRIEFS": "   - `src/features/AGENTS.md`\n   - `src/shared/AGENTS.md`",
+        "TEST_CMD": "npm run test:run",
+        "TEST_GLOBS": "  \"*/test/*\"\n  \"*.test.ts\"\n  \"*.test.tsx\"",
+        "TEST_PATHS": "`**/test/**`, `**/*.test.ts`, `**/*.test.tsx`"
+      }
+    },
+    ".claude/agents/verifier.md": {
+      "template": "loop/verifier.md",
+      "version": null,
+      "templateSha256": null,
+      "fileSha256": null,
+      "renderable": false,
+      "values": {}
+    },
+    ".claude/hooks/format-changed.sh": {
+      "template": "loop/format-changed.sh",
+      "version": null,
+      "templateSha256": null,
+      "fileSha256": null,
+      "renderable": false,
+      "values": {}
+    },
+    ".claude/hooks/protected-paths.sh": {
+      "template": "loop/protected-paths.sh",
+      "version": null,
+      "templateSha256": null,
+      "fileSha256": null,
+      "renderable": false,
+      "values": {}
+    },
+    ".claude/hooks/test-paths.sh": {
+      "template": "team/test-paths.sh",
+      "version": "2.41.16",
+      "templateSha256": "4cba7b57aa70690621b2955631886eacdbcb152a8ef86d884bec0f9a3b6b0893",
+      "fileSha256": "15a7d7d340f4535a88b8e9ba99828e2d848529272199003be93f9717642e13f9",
+      "renderable": true,
+      "values": {
+        "ADR_DIR": "docs/adr/",
+        "PLAN_DIRS": "`intent/`",
+        "ROSTER": "`architect`, `implementer`, `tester`, `project-manager`, `verifier` (reviewer)",
+        "SCOPED_BRIEFS": "   - `src/features/AGENTS.md`\n   - `src/shared/AGENTS.md`",
+        "TEST_CMD": "npm run test:run",
+        "TEST_GLOBS": "  \"*/test/*\"\n  \"*.test.ts\"\n  \"*.test.tsx\"",
+        "TEST_PATHS": "`**/test/**`, `**/*.test.ts`, `**/*.test.tsx`"
+      }
+    },
+    ".claude/skills/team/SKILL.md": {
+      "template": "team/team-skill.md",
+      "version": "2.41.16",
+      "templateSha256": "2a3387029b90221055a71e1216d991fac0d6ed6f03ca82660e8fc45c36656944",
+      "fileSha256": "2a3387029b90221055a71e1216d991fac0d6ed6f03ca82660e8fc45c36656944",
+      "renderable": true,
+      "values": {
+        "ADR_DIR": "docs/adr/",
+        "PLAN_DIRS": "`intent/`",
+        "ROSTER": "`architect`, `implementer`, `tester`, `project-manager`, `verifier` (reviewer)",
+        "SCOPED_BRIEFS": "   - `src/features/AGENTS.md`\n   - `src/shared/AGENTS.md`",
+        "TEST_CMD": "npm run test:run",
+        "TEST_GLOBS": "  \"*/test/*\"\n  \"*.test.ts\"\n  \"*.test.tsx\"",
+        "TEST_PATHS": "`**/test/**`, `**/*.test.ts`, `**/*.test.tsx`"
+      }
+    },
+    "REVIEW.md": {
+      "template": "loop/REVIEW.md",
+      "version": null,
+      "templateSha256": null,
+      "fileSha256": null,
+      "renderable": false,
+      "values": {}
+    },
+    "intent/README.md": {
+      "template": "loop/intent-README.md",
+      "version": null,
+      "templateSha256": null,
+      "fileSha256": null,
+      "renderable": false,
+      "values": {}
+    },
+    "intent/TEMPLATE.md": {
+      "template": "loop/intent.md",
+      "version": null,
+      "templateSha256": null,
+      "fileSha256": null,
+      "renderable": false,
+      "values": {}
+    }
+  }
+}

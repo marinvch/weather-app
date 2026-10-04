@@ -22,10 +22,10 @@ Dependencies flow **one way: `shared → features → app`**, and features never
 
 | Path | Holds |
 |---|---|
-| `src/app/` | composition root — `App.tsx`, the profile switch, `ProfileSelector` |
+| `src/app/` | composition root — `App.tsx`, the profile registry, `ProfileSelector`; see `src/app/AGENTS.md` |
 | `src/features/` | one folder per persona and capability; see `src/features/AGENTS.md` |
 | `src/shared/` | theme, UI, API transport, types — the foundation; see `src/shared/AGENTS.md` |
-| `src/store/` | `configureStore` + typed hooks; composes feature reducers |
+| `src/store/` | `configureStore` + typed hooks; composes feature reducers; see `src/store/AGENTS.md` |
 | `public/` | hand-written `sw.js`, PWA `manifest.json`, icons |
 
 Imports use the **`@/` alias** for `src/` (`tsconfig.app.json` paths + `vite.config.ts` resolve —
@@ -87,9 +87,6 @@ change is done.
 
 ## Invariants
 
-- Every API registered in `@/store/store` needs **both** its reducer (`api.reducerPath`) and
-  its `api.middleware` in the `.concat()` chain. Miss the middleware and RTK Query silently never
-  fetches.
 - PostCSS config must stay `postcss.config.cjs`. `package.json` sets `"type": "module"`, so a
   `.js` config using `module.exports` fails to load.
 - All Redux access goes through `useAppSelector` / `useAppDispatch` from `@/store/hooks`,
@@ -110,9 +107,8 @@ change is done.
   Vite's hashed `/assets/*` files are cached at runtime, cache-first. So a code-split chunk works
   offline only once something has fetched it — which is why `App` calls `preloadDashboards()` at
   idle. Add a lazy chunk without a preload and that screen breaks offline.
-- The geolocation fallback is Medenrudnik, Burgas, Bulgaria (`src/app/App.tsx`) — not London, which
-  older notes claim. `.github/copilot-instructions.md` is a one-line shim to this file; keep it
-  that way, a second copy of the brief drifts.
+- `.github/copilot-instructions.md` is a one-line shim to this file; keep it that way, a second
+  copy of the brief drifts.
 - Marine, historical and forecast data come from **three different Open-Meteo hosts**
   (`api.`, `marine-api.`, `archive-api.`) — a copied `baseUrl` is the usual cause of a 404.
 - The "AI analysis" is deterministic rule-based scoring in each feature's `lib/advice.ts`. There is
@@ -129,6 +125,8 @@ Read the root, match your work to a row, then open **one** leaf:
 |---|---|
 | `src/features/` | [`src/features/AGENTS.md`](src/features/AGENTS.md) |
 | `src/shared/` | [`src/shared/AGENTS.md`](src/shared/AGENTS.md) |
+| `src/app/` | [`src/app/AGENTS.md`](src/app/AGENTS.md) |
+| `src/store/` | [`src/store/AGENTS.md`](src/store/AGENTS.md) |
 
 ## Conventions
 
