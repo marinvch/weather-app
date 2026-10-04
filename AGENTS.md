@@ -110,10 +110,9 @@ change is done.
   Vite's hashed `/assets/*` files are cached at runtime, cache-first. So a code-split chunk works
   offline only once something has fetched it — which is why `App` calls `preloadDashboards()` at
   idle. Add a lazy chunk without a preload and that screen breaks offline.
-- `.github/copilot-instructions.md` is an older hand-written brief and is now substantially stale:
-  it describes the Tailwind/shadcn stack, the pre-feature folder layout, and a **London**
-  geolocation fallback (the code falls back to Medenrudnik, Burgas, Bulgaria — `src/app/App.tsx`).
-  Trust the code and this file.
+- The geolocation fallback is Medenrudnik, Burgas, Bulgaria (`src/app/App.tsx`) — not London, which
+  older notes claim. `.github/copilot-instructions.md` is a one-line shim to this file; keep it
+  that way, a second copy of the brief drifts.
 - Marine, historical and forecast data come from **three different Open-Meteo hosts**
   (`api.`, `marine-api.`, `archive-api.`) — a copied `baseUrl` is the usual cause of a 404.
 - The "AI analysis" is deterministic rule-based scoring in each feature's `lib/advice.ts`. There is
